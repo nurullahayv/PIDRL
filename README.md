@@ -1,19 +1,30 @@
-# Vision-Based Pursuit-Evasion Control: Dogfight HUD Error Vector Nullification
+# Vision-Based Pursuit-Evasion Control: 2.5D Dogfight HUD Error Vector Nullification
 
-A comprehensive research project comparing classical control (PID, Kalman Filter + PID) with modern Deep Reinforcement Learning (SAC) for **error vector nullification** in an egocentric, dogfight HUD-inspired tracking environment.
+A comprehensive research project comparing classical control (PID, Kalman Filter + PID) with modern Deep Reinforcement Learning (SAC) for **3D error vector nullification** in an egocentric, dogfight HUD-inspired tracking environment with **depth perception and multi-target capability**.
 
 ## 📋 Project Overview
 
-### The Core Concept: Error Vector Nullification
+### 🆕 NEW: 2.5D (Pseudo-3D) Upgrade
+
+We've upgraded from 2D to **2.5D with depth perception**:
+
+- **3D State Space**: Targets now have position (x, y, **z**) where z represents depth/range
+- **Visual Depth Encoding**: Depth is perceptually encoded as **target size** (closer = bigger, farther = smaller)
+- **3D Action Space**: Agent controls (ax, ay, **az**) - lateral steering + forward/backward thrust
+- **Multi-Target Support**: Track multiple color-coded targets simultaneously
+- **Range Management**: Must control closure rate and maintain optimal engagement range
+
+### The Core Concept: 3D Error Vector Nullification
 
 Inspired by fighter jet dogfight HUDs, this project implements a **purely egocentric (first-person) control environment** where:
 
 - **🎯 The Agent (You)**: Always at the center of your universe, represented by a fixed **green crosshair**
-- **🔴 The Target (Enemy)**: Executes evasive maneuvers (Brownian motion) and appears as a moving red object
-- **📐 The Error Vector (Mission)**: The cyan arrow from your crosshair to the target - **this is what you must nullify**
-- **⚡ The Control Challenge**: Generate the right acceleration commands to drive the error vector's magnitude to zero
+- **🔴 The Targets (Enemies)**: Color-coded targets executing evasive maneuvers in 3D space
+- **📐 The 3D Error Vector (Mission)**: The cyan arrow from your crosshair to the target - **nullify in ALL three dimensions**
+- **⚡ The Control Challenge**: Generate 3D acceleration commands (steering + thrust) to drive the 3D error vector to zero
+- **🎚️ Depth Perception**: Target size scales with depth - larger means closer, smaller means farther away
 
-This is **not** a realistic 3D flight simulator. Instead, we deliberately abstract away complex graphics and visual detection to focus on the **pure control problem**: Given a simplified "radar" view showing relative target position, can different control strategies effectively minimize tracking error?
+This is **not** a realistic 3D flight simulator. Instead, we deliberately abstract away complex graphics and visual detection to focus on the **pure 3D control problem**: Given a simplified "radar" view with depth cues, can different control strategies effectively minimize 3D tracking error while managing range?
 
 ### The Egocentric Framework
 
@@ -145,18 +156,35 @@ python test_environment.py
 
 ### 1. Demo Visualization
 
+**🆕 NEW: 2.5D Demo with Depth Perception**
+
+```bash
+# Single target with depth (recommended first try)
+python demo_3d.py --n-episodes 3
+
+# Multi-target scenario (3 targets)
+python demo_3d.py --num-targets 3 --n-episodes 2
+
+# Try 5 simultaneous targets (challenge mode!)
+python demo_3d.py --num-targets 5 --n-episodes 2
+```
+
+**Classic 2D Demo (original version)**
+
 Test each controller interactively:
 
 ```bash
-# PID Controller
+# PID Controller (2D)
 python demo.py pid --n-episodes 3
 
-# Kalman Filter + PID
+# Kalman Filter + PID (2D)
 python demo.py kalman-pid --n-episodes 3
 
-# SAC Agent (requires trained model)
+# SAC Agent (requires trained model - 2D)
 python demo.py sac --sac-model models/sac/final_model --n-episodes 3
 ```
+
+**Note:** The 2.5D environment uses random actions in the demo. For actual control, you'll need to adapt the controllers to handle 3D actions (see below).
 
 ### 2. Train SAC Agent
 

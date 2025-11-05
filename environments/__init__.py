@@ -45,38 +45,62 @@ except ImportError:
                     return np.array(list(self.frames))
 
 from environments.pursuit_evasion_env import PursuitEvasionEnv
+from environments.pursuit_evasion_env_3d import PursuitEvasion3DEnv
 
 
-def make_env(config: dict, render_mode=None):
+def make_env(config: dict, render_mode=None, use_3d=True):
     """
     Create and configure the pursuit-evasion environment.
 
     Args:
         config: Dictionary containing environment configuration
         render_mode: Rendering mode ('human', 'rgb_array', or None)
+        use_3d: If True, use 2.5D environment with depth. If False, use classic 2D.
 
     Returns:
         Wrapped Gymnasium environment with frame stacking
     """
     env_config = config.get("environment", {})
 
-    # Create base environment
-    env = PursuitEvasionEnv(
-        frame_size=env_config.get("frame_size", 64),
-        dt=env_config.get("dt", 0.1),
-        max_velocity=env_config.get("max_velocity", 10.0),
-        max_acceleration=env_config.get("max_acceleration", 1.0),
-        friction=env_config.get("friction", 0.95),
-        world_size=env_config.get("world_size", 100.0),
-        view_radius=env_config.get("view_radius", 30.0),
-        target_brownian_std=env_config.get("target_brownian_std", 2.0),
-        target_size=env_config.get("target_size", 2.0),
-        agent_size=env_config.get("agent_size", 1.5),
-        max_steps=env_config.get("max_steps", 500),
-        success_threshold=env_config.get("success_threshold", 5.0),
-        reward_scale=env_config.get("reward_scale", 0.01),
-        render_mode=render_mode,
-    )
+    # Choose environment type
+    if use_3d:
+        # Create 2.5D environment with depth perception
+        env = PursuitEvasion3DEnv(
+            frame_size=env_config.get("frame_size", 64),
+            dt=env_config.get("dt", 0.1),
+            max_velocity=env_config.get("max_velocity", 10.0),
+            max_acceleration=env_config.get("max_acceleration", 1.0),
+            friction=env_config.get("friction", 0.95),
+            world_size=env_config.get("world_size", 100.0),
+            view_radius=env_config.get("view_radius", 30.0),
+            depth_range=env_config.get("depth_range", (10.0, 50.0)),
+            target_brownian_std=env_config.get("target_brownian_std", 2.0),
+            target_size=env_config.get("target_size", 2.0),
+            agent_size=env_config.get("agent_size", 1.5),
+            max_steps=env_config.get("max_steps", 500),
+            success_threshold=env_config.get("success_threshold", 5.0),
+            reward_scale=env_config.get("reward_scale", 0.01),
+            num_targets=env_config.get("num_targets", 1),
+            render_mode=render_mode,
+        )
+    else:
+        # Create classic 2D environment
+        env = PursuitEvasionEnv(
+            frame_size=env_config.get("frame_size", 64),
+            dt=env_config.get("dt", 0.1),
+            max_velocity=env_config.get("max_velocity", 10.0),
+            max_acceleration=env_config.get("max_acceleration", 1.0),
+            friction=env_config.get("friction", 0.95),
+            world_size=env_config.get("world_size", 100.0),
+            view_radius=env_config.get("view_radius", 30.0),
+            target_brownian_std=env_config.get("target_brownian_std", 2.0),
+            target_size=env_config.get("target_size", 2.0),
+            agent_size=env_config.get("agent_size", 1.5),
+            max_steps=env_config.get("max_steps", 500),
+            success_threshold=env_config.get("success_threshold", 5.0),
+            reward_scale=env_config.get("reward_scale", 0.01),
+            render_mode=render_mode,
+        )
 
     # Apply frame stacking wrapper
     frame_stack = env_config.get("frame_stack", 4)
@@ -85,4 +109,4 @@ def make_env(config: dict, render_mode=None):
     return env
 
 
-__all__ = ["PursuitEvasionEnv", "make_env"]
+__all__ = ["PursuitEvasionEnv", "PursuitEvasion3DEnv", "make_env"]
