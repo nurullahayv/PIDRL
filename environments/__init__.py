@@ -1,6 +1,49 @@
 """Environments package for pursuit-evasion simulation."""
 
-from gymnasium.wrappers import FrameStack
+# Handle different gymnasium versions
+try:
+    from gymnasium.wrappers import FrameStack
+except ImportError:
+    try:
+        from gymnasium.wrappers.frame_stack import FrameStack
+    except ImportError:
+        # Fallback: use gym's FrameStack or implement our own
+        try:
+            from gym.wrappers import FrameStack
+        except ImportError:
+            # If all else fails, we'll implement a simple version
+            from gymnasium import Wrapper
+            from collections import deque
+            import numpy as np
+
+            class FrameStack(Wrapper):
+                """Simple FrameStack implementation for compatibility."""
+                def __init__(self, env, num_stack):
+                    super().__init__(env)
+                    self.num_stack = num_stack
+                    self.frames = deque(maxlen=num_stack)
+
+                    # Update observation space
+                    low = np.repeat(env.observation_space.low[np.newaxis, ...], num_stack, axis=0)
+                    high = np.repeat(env.observation_space.high[np.newaxis, ...], num_stack, axis=0)
+                    self.observation_space = type(env.observation_space)(
+                        low=low, high=high, dtype=env.observation_space.dtype
+                    )
+
+                def reset(self, **kwargs):
+                    obs, info = self.env.reset(**kwargs)
+                    for _ in range(self.num_stack):
+                        self.frames.append(obs)
+                    return self._get_obs(), info
+
+                def step(self, action):
+                    obs, reward, terminated, truncated, info = self.env.step(action)
+                    self.frames.append(obs)
+                    return self._get_obs(), reward, terminated, truncated, info
+
+                def _get_obs(self):
+                    return np.array(list(self.frames))
+
 from environments.pursuit_evasion_env import PursuitEvasionEnv
 
 
