@@ -1,20 +1,42 @@
-# Vision-Based Pursuit-Evasion Control: PID vs Deep RL
+# Vision-Based Pursuit-Evasion Control: Dogfight HUD Error Vector Nullification
 
-A comprehensive research project comparing classical control (PID, Kalman Filter + PID) with modern Deep Reinforcement Learning (SAC) for vision-based pursuit-evasion tasks.
+A comprehensive research project comparing classical control (PID, Kalman Filter + PID) with modern Deep Reinforcement Learning (SAC) for **error vector nullification** in an egocentric, dogfight HUD-inspired tracking environment.
 
 ## 📋 Project Overview
 
-This project implements a 2D pursuit-evasion simulation to benchmark different control strategies. The challenge: an agent must learn to track a target moving with Brownian motion using only egocentric, vision-based observations (64×64 stacked frames).
+### The Core Concept: Error Vector Nullification
+
+Inspired by fighter jet dogfight HUDs, this project implements a **purely egocentric (first-person) control environment** where:
+
+- **🎯 The Agent (You)**: Always at the center of your universe, represented by a fixed **green crosshair**
+- **🔴 The Target (Enemy)**: Executes evasive maneuvers (Brownian motion) and appears as a moving red object
+- **📐 The Error Vector (Mission)**: The cyan arrow from your crosshair to the target - **this is what you must nullify**
+- **⚡ The Control Challenge**: Generate the right acceleration commands to drive the error vector's magnitude to zero
+
+This is **not** a realistic 3D flight simulator. Instead, we deliberately abstract away complex graphics and visual detection to focus on the **pure control problem**: Given a simplified "radar" view showing relative target position, can different control strategies effectively minimize tracking error?
+
+### The Egocentric Framework
+
+The simulation operates from a purely first-person perspective:
+
+1. **Agent's Viewpoint**: You are always at the center. The world rotates around you.
+2. **Error Vector**: The line from your center (green crosshair) to the target (red circle) represents the error that must be nullified
+3. **Control Loop**: As the target moves, the error vector changes → Controller computes acceleration → Agent moves to reduce error → Repeat
+
+### Research Question
+
+**How do different control paradigms (classical PID, state estimation with Kalman filtering, and end-to-end Deep RL) compare when solving this error vector nullification problem using only vision-based, egocentric observations?**
 
 ### Key Features
 
-- **Custom Gymnasium Environment**: Dynamic physics with acceleration-based control
+- **Dogfight HUD-Style Environment**: Radar rings, crosshair, error vector visualization, status indicators
+- **Pure Egocentric Control**: Agent always centered, learns to nullify error vectors
 - **Three Control Approaches**:
-  1. **PID Controller**: Classical control with OpenCV-based visual detection
-  2. **Kalman Filter + PID**: State estimation for robust tracking
-  3. **SAC Deep RL**: End-to-end learning from pixels
-- **Comprehensive Evaluation**: Metrics, visualizations, and statistical comparison
-- **Publication-Ready**: Automated figure generation and LaTeX table export
+  1. **PID Controller**: Classical feedback control with OpenCV visual detection
+  2. **Kalman Filter + PID**: State estimation for smooth, robust tracking
+  3. **SAC Deep RL**: End-to-end learning directly from pixels (64×64 stacked frames)
+- **Comprehensive Evaluation**: Error magnitude, tracking success rate, statistical comparison
+- **Publication-Ready**: Automated figure generation and LaTeX tables
 
 ## 🏗️ Project Structure
 
@@ -45,6 +67,52 @@ PIDRL/
 ├── test_environment.py     # Quick test script
 └── requirements.txt        # Dependencies
 ```
+
+## 🎯 Visual Guide: Understanding the HUD
+
+When you run the demo, you'll see a **dogfight-inspired HUD** with these elements:
+
+### HUD Elements
+
+| Element | Color | Description |
+|---------|-------|-------------|
+| **Green Crosshair** | 🟢 Green | Your agent - always at the center. This is your fixed reference point. |
+| **Red Circle** | 🔴 Red | The target executing evasive maneuvers (Brownian motion) |
+| **Cyan Arrow** | 🔵 Cyan | **THE ERROR VECTOR** - Points from you (center) to target. Your goal is to nullify this! |
+| **Radar Rings** | ⚪ Gray | Range indicators (33%, 66%, 100% of view radius) |
+| **Light Green Line** | 🟢 Green | Your velocity vector (where you're moving) |
+| **Light Red Line** | 🔴 Red | Target's velocity vector (where it's moving) |
+
+### HUD Information Display
+
+**Top-Left:**
+- `ERROR: X.XX` - **Error magnitude** (distance to target) - Lower is better!
+- `[LOCKED]` or `[TRACKING]` - Status indicator (LOCKED when error < threshold)
+
+**Top-Right:**
+- `STEP: X/500` - Current timestep in episode
+
+**Bottom-Left:**
+- `AGENT VEL: X.XX` - Your current speed
+- `TARGET VEL: X.XX` - Target's current speed
+
+**Bottom-Right:**
+- `Goal: Nullify Error Vector` - Reminder of your objective
+
+**Center (when tracking):**
+- `XXX°` - Angle to target in degrees
+
+### What You're Watching
+
+When you run `python demo.py pid`:
+
+1. **Green crosshair** stays at center (that's you, the agent)
+2. **Red target** moves around executing random evasive maneuvers
+3. **Cyan error vector** points from center to target
+4. **Controller tries to "follow" the vector** by applying accelerations
+5. **Goal**: Make the cyan arrow as short as possible (ideally zero)
+
+The **error vector is the key concept**: Unlike traditional tracking where you move toward the target, here your perspective is egocentric - the target appears to move relative to you, and you must apply forces to keep it centered in your crosshair.
 
 ## 🚀 Installation
 
