@@ -65,11 +65,13 @@ class PursuitEvasion3DEnv(gym.Env):
         dt: float = 0.1,
         max_velocity: float = 10.0,
         max_acceleration: float = 1.0,
+        max_angular_velocity: float = 2.0,  # rad/s - turning rate limit
         friction: float = 0.95,
         world_size: float = 100.0,
-        view_radius: float = 30.0,
+        view_size: float = 30.0,  # Changed from view_radius to view_size (square FOV)
         depth_range: Tuple[float, float] = (10.0, 50.0),  # (min_z, max_z)
         target_brownian_std: float = 2.0,
+        target_evasion_strength: float = 0.5,  # How strongly targets evade
         target_size: float = 2.0,
         agent_size: float = 1.5,
         max_steps: int = 500,
@@ -85,11 +87,13 @@ class PursuitEvasion3DEnv(gym.Env):
         self.dt = dt
         self.max_velocity = max_velocity
         self.max_acceleration = max_acceleration
+        self.max_angular_velocity = max_angular_velocity
         self.friction = friction
         self.world_size = world_size
-        self.view_radius = view_radius
+        self.view_size = view_size  # Square field of view
         self.min_depth, self.max_depth = depth_range
         self.target_brownian_std = target_brownian_std
+        self.target_evasion_strength = target_evasion_strength
         self.target_size = target_size
         self.agent_size = agent_size
         self.max_steps = max_steps
@@ -110,6 +114,7 @@ class PursuitEvasion3DEnv(gym.Env):
         # State variables (now 3D!)
         self.agent_pos = np.zeros(3, dtype=np.float32)  # [x, y, z]
         self.agent_vel = np.zeros(3, dtype=np.float32)  # [vx, vy, vz]
+        self.agent_heading = np.array([1.0, 0.0, 0.0], dtype=np.float32)  # Forward direction
 
         # Multi-target support
         self.targets: List[Target] = []
@@ -139,19 +144,18 @@ class PursuitEvasion3DEnv(gym.Env):
         # Initialize agent at origin
         self.agent_pos = np.zeros(3, dtype=np.float32)
         self.agent_vel = np.zeros(3, dtype=np.float32)
+        self.agent_heading = np.array([1.0, 0.0, 0.0], dtype=np.float32)
 
         # Initialize targets
         self.targets = []
         for i in range(self.num_targets):
-            # Random position in 3D space
-            angle = self.np_random.uniform(0, 2 * np.pi)
-            elevation = self.np_random.uniform(-0.3, 0.3)  # Slight vertical spread
-            distance_xy = self.np_random.uniform(10.0, self.view_radius * 0.8)
+            # Random position in 3D space (within square FOV)
+            pos_xy = self.np_random.uniform(-self.view_size * 0.4, self.view_size * 0.4, size=2)
             distance_z = self.np_random.uniform(self.min_depth, self.max_depth * 0.7)
 
             target_pos = np.array([
-                distance_xy * np.cos(angle),
-                distance_xy * np.sin(angle) + elevation * distance_xy,
+                pos_xy[0],
+                pos_xy[1],
                 distance_z
             ], dtype=np.float32)
 
@@ -178,27 +182,70 @@ class PursuitEvasion3DEnv(gym.Env):
         action = np.clip(action, -1.0, 1.0)
         acceleration = action * self.max_acceleration
 
-        # Update agent dynamics (now 3D!)
-        self.agent_vel = self.friction * self.agent_vel + acceleration * self.dt
+        # Update agent dynamics with flight dynamics limits
+        # Apply acceleration
+        new_vel = self.friction * self.agent_vel + acceleration * self.dt
+
+        # Apply angular velocity constraint (turning rate limit)
+        if np.linalg.norm(self.agent_vel) > 0.1 and np.linalg.norm(new_vel) > 0.1:
+            # Calculate angular change
+            old_dir = self.agent_vel / np.linalg.norm(self.agent_vel)
+            new_dir = new_vel / np.linalg.norm(new_vel)
+
+            # Calculate angle between vectors
+            cos_angle = np.clip(np.dot(old_dir, new_dir), -1.0, 1.0)
+            angle_change = np.arccos(cos_angle)
+            max_angle_change = self.max_angular_velocity * self.dt
+
+            # Limit turning rate
+            if angle_change > max_angle_change:
+                # Interpolate between old and new direction
+                ratio = max_angle_change / angle_change
+                limited_dir = old_dir + ratio * (new_dir - old_dir)
+                limited_dir = limited_dir / np.linalg.norm(limited_dir)
+                # Keep the magnitude of new velocity but limit direction
+                new_vel = limited_dir * np.linalg.norm(new_vel)
+
+        self.agent_vel = new_vel
 
         # Clip velocity to maximum
         vel_magnitude = np.linalg.norm(self.agent_vel)
         if vel_magnitude > self.max_velocity:
             self.agent_vel = self.agent_vel / vel_magnitude * self.max_velocity
 
+        # Update heading direction from velocity
+        if vel_magnitude > 0.1:
+            self.agent_heading = self.agent_vel / vel_magnitude
+
         self.agent_pos += self.agent_vel * self.dt
 
-        # Update all targets with Brownian motion (in 3D)
+        # Update all targets with evasion + Brownian motion (in 3D)
         for target in self.targets:
-            brownian_acceleration = self.np_random.normal(
-                0, self.target_brownian_std, size=3
-            )
-            target.velocity = self.friction * target.velocity + brownian_acceleration * self.dt
+            # Evasion component: move away from agent
+            relative_pos = target.position - self.agent_pos
+            distance = np.linalg.norm(relative_pos)
+
+            if distance > 0.1:
+                # Evasion acceleration (proportional to agent's threat)
+                evasion_direction = relative_pos / distance
+                agent_speed = np.linalg.norm(self.agent_vel)
+                threat_level = agent_speed / (distance + 1.0)  # Higher threat when agent is fast and close
+                evasion_acc = evasion_direction * self.target_evasion_strength * threat_level
+            else:
+                evasion_acc = np.zeros(3, dtype=np.float32)
+
+            # Brownian component for randomness
+            brownian_acc = self.np_random.normal(0, self.target_brownian_std, size=3)
+
+            # Combined acceleration
+            total_acc = evasion_acc + brownian_acc
+            target.velocity = self.friction * target.velocity + total_acc * self.dt
 
             # Clip target velocity
             target_vel_magnitude = np.linalg.norm(target.velocity)
-            if target_vel_magnitude > self.max_velocity * 0.5:  # Targets move slower
-                target.velocity = target.velocity / target_vel_magnitude * (self.max_velocity * 0.5)
+            max_target_vel = self.max_velocity * 0.6  # Targets can move 60% of agent max speed
+            if target_vel_magnitude > max_target_vel:
+                target.velocity = target.velocity / target_vel_magnitude * max_target_vel
 
             target.position += target.velocity * self.dt
 
@@ -220,8 +267,9 @@ class PursuitEvasion3DEnv(gym.Env):
         terminated = False
         truncated = self.step_count >= self.max_steps
 
-        # Check if target is too far (consider 3D distance)
-        if distance_3d > self.view_radius * 2.0:
+        # Check if target is too far (consider 3D distance and square FOV)
+        max_view_distance = self.view_size * 1.5  # Allow some margin
+        if distance_3d > max_view_distance:
             truncated = True
             reward -= 100.0  # Large penalty for losing target
 
@@ -266,8 +314,8 @@ class PursuitEvasion3DEnv(gym.Env):
             depth_factor = self.min_depth / max(depth, self.min_depth)
             apparent_size = target.base_size * depth_factor
 
-            # Convert to pixel coordinates (center of frame is origin)
-            pixel_scale = self.frame_size / (2 * self.view_radius)
+            # Convert to pixel coordinates (center of frame is origin, square FOV)
+            pixel_scale = self.frame_size / (2 * self.view_size)
             pixel_x = int(self.frame_size / 2 + relative_pos_2d[0] * pixel_scale)
             pixel_y = int(self.frame_size / 2 - relative_pos_2d[1] * pixel_scale)  # Flip Y
 
@@ -329,13 +377,15 @@ class PursuitEvasion3DEnv(gym.Env):
 
         # === HUD ELEMENTS ===
 
-        # 1. Draw radar range rings
-        for radius_factor in [0.33, 0.66, 1.0]:
-            pygame.draw.circle(
+        # 1. Draw SQUARE radar boundaries (not circular!)
+        grid_color = (30, 40, 50)  # Subtle grid lines
+        for size_factor in [0.33, 0.66, 1.0]:
+            half_size = int(self.view_size * self.render_scale * size_factor)
+            # Draw square radar boundary
+            pygame.draw.rect(
                 canvas,
-                (30, 40, 50),  # Subtle grid lines
-                (center_x, center_y),
-                int(self.view_radius * self.render_scale * radius_factor),
+                grid_color,
+                (center_x - half_size, center_y - half_size, half_size * 2, half_size * 2),
                 1
             )
 
@@ -402,17 +452,36 @@ class PursuitEvasion3DEnv(gym.Env):
             name_text = font_small.render(target.name, True, target.color)
             canvas.blit(name_text, (target_screen_x + visual_radius + 5, target_screen_y + 5))
 
-            # Draw velocity vector
-            if np.linalg.norm(target.velocity[:2]) > 0.1:
-                vel_end = (
-                    target_screen_x + int(target.velocity[0] * self.render_scale * 2),
-                    target_screen_y - int(target.velocity[1] * self.render_scale * 2)
-                )
-                lighter_color = tuple(min(255, c + 100) for c in target.color)
-                pygame.draw.line(canvas, lighter_color,
-                               (target_screen_x, target_screen_y), vel_end, 2)
+            # Draw TARGET VELOCITY VECTOR (prominent arrow)
+            target_vel_magnitude = np.linalg.norm(target.velocity[:2])
+            if target_vel_magnitude > 0.1:
+                vel_scale = 3.0  # Visual scaling factor
+                vel_end_x = target_screen_x + int(target.velocity[0] * self.render_scale * vel_scale)
+                vel_end_y = target_screen_y - int(target.velocity[1] * self.render_scale * vel_scale)
 
-        # 4. Draw agent CROSSHAIR at center
+                # Use orange/yellow for target velocity (distinct from target color)
+                target_vel_color = (255, 165, 0)  # Orange
+                pygame.draw.line(canvas, target_vel_color,
+                               (target_screen_x, target_screen_y),
+                               (vel_end_x, vel_end_y), 4)
+                self._draw_arrow_head(canvas, target_screen_x, target_screen_y,
+                                    vel_end_x, vel_end_y, target_vel_color)
+
+        # 4. Draw AGENT VELOCITY VECTOR (green arrow from center)
+        agent_vel_magnitude = np.linalg.norm(self.agent_vel[:2])
+        if agent_vel_magnitude > 0.1:
+            # Scale velocity for visualization
+            vel_scale = 3.0  # Visual scaling factor
+            vel_end_x = center_x + int(self.agent_vel[0] * self.render_scale * vel_scale)
+            vel_end_y = center_y - int(self.agent_vel[1] * self.render_scale * vel_scale)
+
+            # Draw agent velocity vector (bright green)
+            agent_vel_color = (0, 255, 0)
+            pygame.draw.line(canvas, agent_vel_color,
+                           (center_x, center_y), (vel_end_x, vel_end_y), 4)
+            self._draw_arrow_head(canvas, center_x, center_y, vel_end_x, vel_end_y, agent_vel_color)
+
+        # 5. Draw agent CROSSHAIR at center
         crosshair_size = 20
         crosshair_color = (0, 255, 0)  # Green
         pygame.draw.line(canvas, crosshair_color,
@@ -429,7 +498,7 @@ class PursuitEvasion3DEnv(gym.Env):
                         (center_x, center_y + crosshair_size), 3)
         pygame.draw.circle(canvas, crosshair_color, (center_x, center_y), 3)
 
-        # 5. Draw agent
+        # 6. Draw agent body
         pygame.draw.circle(
             canvas,
             (0, 180, 0),
@@ -485,9 +554,26 @@ class PursuitEvasion3DEnv(gym.Env):
         text = font_small.render(f"TARGET VEL: {target_speed:.2f}", True, (255, 100, 100))
         canvas.blit(text, (15, 745))
 
-        # Bottom-right: Instructions
-        text = font_small.render("Goal: Nullify 3D Error Vector", True, (100, 100, 100))
-        canvas.blit(text, (480, 775))
+        # Bottom-right: Vector Legend
+        legend_x = 480
+        legend_y = 690
+        text = font_small.render("VECTOR LEGEND:", True, (150, 150, 150))
+        canvas.blit(text, (legend_x, legend_y))
+
+        # Agent velocity (green)
+        pygame.draw.line(canvas, (0, 255, 0), (legend_x, legend_y + 30), (legend_x + 30, legend_y + 30), 4)
+        text = font_small.render("Agent Velocity", True, (0, 255, 0))
+        canvas.blit(text, (legend_x + 40, legend_y + 20))
+
+        # Target velocity (orange)
+        pygame.draw.line(canvas, (255, 165, 0), (legend_x, legend_y + 55), (legend_x + 30, legend_y + 55), 4)
+        text = font_small.render("Target Velocity", True, (255, 165, 0))
+        canvas.blit(text, (legend_x + 40, legend_y + 45))
+
+        # Error vector (cyan)
+        pygame.draw.line(canvas, (0, 255, 255), (legend_x, legend_y + 80), (legend_x + 30, legend_y + 80), 4)
+        text = font_small.render("Error Vector", True, (0, 255, 255))
+        canvas.blit(text, (legend_x + 40, legend_y + 70))
 
         if self.render_mode == "human":
             self.window.blit(canvas, canvas.get_rect())

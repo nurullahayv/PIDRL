@@ -8,11 +8,12 @@ environment:
   dt: 0.1  # Time step in seconds
   max_velocity: 10.0  # Maximum velocity magnitude
   max_acceleration: 1.0  # Maximum acceleration magnitude
+  max_angular_velocity: 2.0  # Maximum turning rate (rad/s) - flight dynamics limit
   friction: 0.95  # Velocity damping factor
 
   # World bounds
   world_size: 100.0  # Size of the world (symmetric around origin)
-  view_radius: 30.0  # How far the agent can see (XY plane)
+  view_size: 30.0  # Square field of view size (half-width, replaces view_radius)
 
   # 2.5D / 3D Settings (for depth perception)
   depth_range: [10.0, 50.0]  # [min_depth, max_depth] in world units
@@ -20,6 +21,7 @@ environment:
 
   # Target settings
   target_brownian_std: 2.0  # Standard deviation of Brownian motion
+  target_evasion_strength: 0.5  # How strongly targets evade from agent (0=none, 1=aggressive)
   target_size: 2.0  # Base radius of target in world units
 
   # Agent settings
