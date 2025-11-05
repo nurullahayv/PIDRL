@@ -48,17 +48,23 @@ from environments.pursuit_evasion_env import PursuitEvasionEnv
 from environments.pursuit_evasion_env_3d import PursuitEvasion3DEnv
 
 
-def make_env(config: dict, render_mode=None, use_3d=True):
+def make_env(config: dict, render_mode=None, use_3d=False):
     """
     Create and configure the pursuit-evasion environment.
 
     Args:
         config: Dictionary containing environment configuration
         render_mode: Rendering mode ('human', 'rgb_array', or None)
-        use_3d: If True, use 2.5D environment with depth. If False, use classic 2D.
+        use_3d: If True, use 2.5D environment with depth. If False (default), use classic 2D.
 
     Returns:
         Wrapped Gymnasium environment with frame stacking
+
+    Note:
+        - use_3d=False (default): Classic 2D environment, 2D actions (ax, ay)
+        - use_3d=True: New 2.5D environment, 3D actions (ax, ay, az)
+
+        For 2.5D, controllers must be adapted to output 3D actions!
     """
     env_config = config.get("environment", {})
 
