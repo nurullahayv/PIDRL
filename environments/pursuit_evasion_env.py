@@ -223,7 +223,15 @@ class PursuitEvasionEnv(gym.Env):
         }
 
     def render(self):
-        """Render the environment for visualization."""
+        """
+        Render the environment with HUD-style visualization.
+
+        The rendering emphasizes the dogfight HUD concept:
+        - Agent (green) is always at center with crosshair
+        - Target (red) moves relative to agent
+        - Error vector (cyan) shows the tracking error to be nullified
+        - HUD displays error magnitude, velocity, and tracking status
+        """
         if self.render_mode is None:
             return None
 
@@ -231,75 +239,166 @@ class PursuitEvasionEnv(gym.Env):
             pygame.init()
             pygame.display.init()
             self.window = pygame.display.set_mode((800, 800))
-            pygame.display.set_caption("Pursuit-Evasion Environment")
+            pygame.display.set_caption("Dogfight HUD - Pursuit-Evasion Control")
 
         if self.clock is None and self.render_mode == "human":
             self.clock = pygame.time.Clock()
 
-        # Create canvas
+        # Create canvas with HUD-style dark background
         canvas = pygame.Surface((800, 800))
-        canvas.fill((0, 0, 0))  # Black background
+        canvas.fill((5, 10, 15))  # Dark blue-gray (HUD-like)
 
         # Define rendering area (centered view around agent)
         center_x, center_y = 400, 400
 
-        # Draw view radius circle
-        pygame.draw.circle(
-            canvas,
-            (40, 40, 40),  # Dark gray
-            (center_x, center_y),
-            int(self.view_radius * self.render_scale),
-            1
-        )
+        # === HUD ELEMENTS ===
 
-        # Draw agent (always at center, in green)
-        pygame.draw.circle(
-            canvas,
-            (0, 255, 0),  # Green
-            (center_x, center_y),
-            int(self.agent_size * self.render_scale)
-        )
-
-        # Draw velocity vector for agent
-        if np.linalg.norm(self.agent_vel) > 0.1:
-            vel_end = (
-                center_x + int(self.agent_vel[0] * self.render_scale * 2),
-                center_y - int(self.agent_vel[1] * self.render_scale * 2)
+        # 1. Draw radar range rings
+        for radius_factor in [0.33, 0.66, 1.0]:
+            pygame.draw.circle(
+                canvas,
+                (30, 40, 50),  # Subtle grid lines
+                (center_x, center_y),
+                int(self.view_radius * self.render_scale * radius_factor),
+                1
             )
-            pygame.draw.line(canvas, (0, 200, 0), (center_x, center_y), vel_end, 2)
 
-        # Draw target relative to agent
+        # 2. Draw cardinal direction lines (subtle grid)
+        grid_color = (20, 30, 40)
+        pygame.draw.line(canvas, grid_color,
+                        (center_x - 150, center_y),
+                        (center_x + 150, center_y), 1)  # Horizontal
+        pygame.draw.line(canvas, grid_color,
+                        (center_x, center_y - 150),
+                        (center_x, center_y + 150), 1)  # Vertical
+
+        # 3. Calculate error vector
         relative_pos = self.target_pos - self.agent_pos
+        distance = np.linalg.norm(relative_pos)
         target_screen_x = center_x + int(relative_pos[0] * self.render_scale)
         target_screen_y = center_y - int(relative_pos[1] * self.render_scale)
 
+        # 4. Draw ERROR VECTOR (the key concept!)
+        # This is the vector the controller must nullify
+        if distance > 0.1:
+            error_color = (0, 255, 255)  # Cyan - highly visible
+            # Draw thick error vector line from center to target
+            pygame.draw.line(
+                canvas,
+                error_color,
+                (center_x, center_y),
+                (target_screen_x, target_screen_y),
+                3  # Thick line to emphasize
+            )
+            # Draw arrowhead
+            self._draw_arrow_head(canvas, center_x, center_y,
+                                target_screen_x, target_screen_y, error_color)
+
+        # 5. Draw target (the object to track)
         pygame.draw.circle(
             canvas,
-            (255, 0, 0),  # Red
+            (255, 50, 50),  # Bright red
+            (target_screen_x, target_screen_y),
+            int(self.target_size * self.render_scale) + 2,
+            2  # Outline
+        )
+        pygame.draw.circle(
+            canvas,
+            (255, 0, 0),  # Red fill
             (target_screen_x, target_screen_y),
             int(self.target_size * self.render_scale)
         )
 
-        # Draw velocity vector for target
+        # 6. Draw target velocity vector (shows where target is heading)
         if np.linalg.norm(self.target_vel) > 0.1:
             vel_end = (
                 target_screen_x + int(self.target_vel[0] * self.render_scale * 2),
                 target_screen_y - int(self.target_vel[1] * self.render_scale * 2)
             )
             pygame.draw.line(
-                canvas, (200, 0, 0),
+                canvas, (255, 100, 100),  # Light red
                 (target_screen_x, target_screen_y),
                 vel_end, 2
             )
 
-        # Draw distance text
-        distance = np.linalg.norm(self.target_pos - self.agent_pos)
-        font = pygame.font.Font(None, 36)
-        text = font.render(f"Distance: {distance:.2f}", True, (255, 255, 255))
-        canvas.blit(text, (10, 10))
+        # 7. Draw agent CROSSHAIR at center (always centered)
+        crosshair_size = 20
+        crosshair_color = (0, 255, 0)  # Green
+        # Horizontal crosshair
+        pygame.draw.line(canvas, crosshair_color,
+                        (center_x - crosshair_size, center_y),
+                        (center_x - 5, center_y), 3)
+        pygame.draw.line(canvas, crosshair_color,
+                        (center_x + 5, center_y),
+                        (center_x + crosshair_size, center_y), 3)
+        # Vertical crosshair
+        pygame.draw.line(canvas, crosshair_color,
+                        (center_x, center_y - crosshair_size),
+                        (center_x, center_y - 5), 3)
+        pygame.draw.line(canvas, crosshair_color,
+                        (center_x, center_y + 5),
+                        (center_x, center_y + crosshair_size), 3)
+        # Center dot
+        pygame.draw.circle(canvas, crosshair_color, (center_x, center_y), 3)
 
-        text2 = font.render(f"Step: {self.step_count}", True, (255, 255, 255))
-        canvas.blit(text2, (10, 50))
+        # 8. Draw agent (small circle at center)
+        pygame.draw.circle(
+            canvas,
+            (0, 180, 0),  # Green
+            (center_x, center_y),
+            int(self.agent_size * self.render_scale),
+            2  # Outline only
+        )
+
+        # 9. Draw agent velocity vector (shows our movement)
+        if np.linalg.norm(self.agent_vel) > 0.1:
+            vel_end = (
+                center_x + int(self.agent_vel[0] * self.render_scale * 2),
+                center_y - int(self.agent_vel[1] * self.render_scale * 2)
+            )
+            pygame.draw.line(canvas, (100, 255, 100),
+                           (center_x, center_y), vel_end, 2)
+
+        # === HUD TEXT DISPLAYS ===
+        font_large = pygame.font.Font(None, 40)
+        font_medium = pygame.font.Font(None, 32)
+        font_small = pygame.font.Font(None, 24)
+
+        # Top-left: Error magnitude (primary metric)
+        error_mag = distance
+        error_color_text = (0, 255, 255) if error_mag > self.success_threshold else (0, 255, 0)
+        text = font_large.render(f"ERROR: {error_mag:.2f}", True, error_color_text)
+        canvas.blit(text, (15, 15))
+
+        # Status indicator
+        status = "LOCKED" if error_mag < self.success_threshold else "TRACKING"
+        status_color = (0, 255, 0) if error_mag < self.success_threshold else (255, 200, 0)
+        text = font_medium.render(f"[{status}]", True, status_color)
+        canvas.blit(text, (15, 55))
+
+        # Top-right: Step counter
+        text = font_small.render(f"STEP: {self.step_count}/{self.max_steps}", True, (150, 150, 150))
+        canvas.blit(text, (650, 15))
+
+        # Bottom-left: Velocity information
+        agent_speed = np.linalg.norm(self.agent_vel)
+        text = font_small.render(f"AGENT VEL: {agent_speed:.2f}", True, (100, 255, 100))
+        canvas.blit(text, (15, 720))
+
+        target_speed = np.linalg.norm(self.target_vel)
+        text = font_small.render(f"TARGET VEL: {target_speed:.2f}", True, (255, 100, 100))
+        canvas.blit(text, (15, 750))
+
+        # Bottom-right: Instructions
+        text = font_small.render("Goal: Nullify Error Vector", True, (100, 100, 100))
+        canvas.blit(text, (520, 750))
+
+        # Center info: Error vector magnitude indicator
+        if distance > 1.0:
+            error_angle = np.arctan2(-relative_pos[1], relative_pos[0]) * 180 / np.pi
+            text = font_small.render(f"{error_angle:.0f}°", True, (0, 200, 200))
+            text_rect = text.get_rect(center=(center_x, center_y - 60))
+            canvas.blit(text, text_rect)
 
         if self.render_mode == "human":
             self.window.blit(canvas, canvas.get_rect())
@@ -310,6 +409,39 @@ class PursuitEvasionEnv(gym.Env):
             return np.transpose(
                 np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
             )
+
+    def _draw_arrow_head(self, surface, start_x, start_y, end_x, end_y, color):
+        """Draw an arrowhead at the end of the error vector."""
+        # Calculate arrow direction
+        dx = end_x - start_x
+        dy = end_y - start_y
+        length = np.sqrt(dx**2 + dy**2)
+
+        if length < 10:
+            return
+
+        # Normalize
+        dx /= length
+        dy /= length
+
+        # Arrow head size
+        arrow_length = 15
+        arrow_width = 10
+
+        # Calculate arrow head points
+        # Point back from end
+        base_x = end_x - dx * arrow_length
+        base_y = end_y - dy * arrow_length
+
+        # Perpendicular points
+        perp_dx = -dy
+        perp_dy = dx
+
+        point1 = (int(base_x + perp_dx * arrow_width), int(base_y + perp_dy * arrow_width))
+        point2 = (int(base_x - perp_dx * arrow_width), int(base_y - perp_dy * arrow_width))
+        point3 = (int(end_x), int(end_y))
+
+        pygame.draw.polygon(surface, color, [point1, point2, point3])
 
     def close(self):
         """Clean up resources."""

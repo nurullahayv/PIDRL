@@ -1,8 +1,22 @@
 """
-Demo script to visualize different controllers in action.
+Dogfight HUD Demo: Visualize Error Vector Nullification in Action
 
-This script allows you to quickly test and visualize any of the three
-control methods: PID, Kalman-PID, or SAC.
+This script provides an interactive visualization of different control methods
+attempting to solve the error vector nullification problem.
+
+What you'll see:
+- Green crosshair (center): Your agent - always fixed at center
+- Red circle: The evasive target executing Brownian motion
+- Cyan arrow: THE ERROR VECTOR - the controller's goal is to nullify this!
+- HUD display: Error magnitude, velocities, lock status
+
+Watch how different controllers (PID, Kalman-PID, SAC) try to keep the
+cyan error vector as small as possible by generating acceleration commands.
+
+Usage:
+    python demo.py pid            # Classical PID controller
+    python demo.py kalman-pid     # State estimation + PID
+    python demo.py sac            # Deep RL (requires trained model)
 """
 
 import sys
