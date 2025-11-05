@@ -12,18 +12,22 @@ environment:
 
   # World bounds
   world_size: 100.0  # Size of the world (symmetric around origin)
-  view_radius: 30.0  # How far the agent can see
+  view_radius: 30.0  # How far the agent can see (XY plane)
+
+  # 2.5D / 3D Settings (for depth perception)
+  depth_range: [10.0, 50.0]  # [min_depth, max_depth] in world units
+  num_targets: 1  # Number of targets to track (multi-target capability)
 
   # Target settings
   target_brownian_std: 2.0  # Standard deviation of Brownian motion
-  target_size: 2.0  # Radius of target in world units
+  target_size: 2.0  # Base radius of target in world units
 
   # Agent settings
   agent_size: 1.5  # Radius of agent in world units
 
   # Episode settings
   max_steps: 500
-  success_threshold: 5.0  # Distance considered "successful tracking"
+  success_threshold: 5.0  # 3D distance considered "successful tracking"
 
   # Reward settings
   reward_scale: 0.01  # Scale factor for distance-based reward
