@@ -1,6 +1,6 @@
 # Core Dependencies
-gymnasium>=0.29.0
-numpy>=1.24.0
+gymnasium>=0.29.0,<1.0.0
+numpy>=1.24.0,<2.0.0
 pygame>=2.5.0
 
 # Computer Vision
@@ -12,7 +12,7 @@ torch>=2.0.0
 torchvision>=0.15.0
 
 # Reinforcement Learning
-stable-baselines3>=2.1.0
+stable-baselines3>=2.1.0,<3.0.0
 sb3-contrib>=2.1.0
 
 # Utilities
@@ -24,3 +24,5 @@ tqdm>=4.65.0
 
 # Data Processing
 pandas>=2.0.0
+
+# Note: If you encounter import errors with FrameStack, the code includes fallback implementations
