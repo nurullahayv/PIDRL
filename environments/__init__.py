@@ -71,16 +71,21 @@ def make_env(config: dict, render_mode=None, use_3d=False):
     # Choose environment type
     if use_3d:
         # Create 2.5D environment with depth perception
+        # Support both view_size (new, square FOV) and view_radius (old, backward compat)
+        view_size = env_config.get("view_size", env_config.get("view_radius", 30.0))
+
         env = PursuitEvasion3DEnv(
             frame_size=env_config.get("frame_size", 64),
             dt=env_config.get("dt", 0.1),
             max_velocity=env_config.get("max_velocity", 10.0),
             max_acceleration=env_config.get("max_acceleration", 1.0),
+            max_angular_velocity=env_config.get("max_angular_velocity", 2.0),
             friction=env_config.get("friction", 0.95),
             world_size=env_config.get("world_size", 100.0),
-            view_radius=env_config.get("view_radius", 30.0),
+            view_size=view_size,
             depth_range=env_config.get("depth_range", (10.0, 50.0)),
             target_brownian_std=env_config.get("target_brownian_std", 2.0),
+            target_evasion_strength=env_config.get("target_evasion_strength", 0.5),
             target_size=env_config.get("target_size", 2.0),
             agent_size=env_config.get("agent_size", 1.5),
             max_steps=env_config.get("max_steps", 500),
