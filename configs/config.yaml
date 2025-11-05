@@ -1,0 +1,83 @@
+# Environment Configuration
+environment:
+  # Observation settings
+  frame_size: 64  # Width and height of each frame
+  frame_stack: 4  # Number of frames to stack
+
+  # Physics settings
+  dt: 0.1  # Time step in seconds
+  max_velocity: 10.0  # Maximum velocity magnitude
+  max_acceleration: 1.0  # Maximum acceleration magnitude
+  friction: 0.95  # Velocity damping factor
+
+  # World bounds
+  world_size: 100.0  # Size of the world (symmetric around origin)
+  view_radius: 30.0  # How far the agent can see
+
+  # Target settings
+  target_brownian_std: 2.0  # Standard deviation of Brownian motion
+  target_size: 2.0  # Radius of target in world units
+
+  # Agent settings
+  agent_size: 1.5  # Radius of agent in world units
+
+  # Episode settings
+  max_steps: 500
+  success_threshold: 5.0  # Distance considered "successful tracking"
+
+  # Reward settings
+  reward_scale: 0.01  # Scale factor for distance-based reward
+
+# PID Controller Configuration
+pid:
+  kp: 0.5  # Proportional gain
+  ki: 0.01  # Integral gain
+  kd: 0.2  # Derivative gain
+  integral_limit: 10.0  # Anti-windup limit
+
+# Kalman Filter Configuration
+kalman:
+  # Process noise covariance
+  process_noise_pos: 0.1
+  process_noise_vel: 0.5
+
+  # Measurement noise covariance
+  measurement_noise: 2.0
+
+  # Initial covariance
+  initial_covariance: 10.0
+
+# SAC Configuration
+sac:
+  # Network architecture
+  cnn_features: [32, 64, 64]  # Conv layer channels
+  cnn_kernels: [8, 4, 3]  # Kernel sizes
+  cnn_strides: [4, 2, 1]  # Strides
+  mlp_units: [256, 256]  # MLP hidden units
+
+  # Training hyperparameters
+  learning_rate: 3.0e-4
+  buffer_size: 100000
+  batch_size: 256
+  gamma: 0.99  # Discount factor
+  tau: 0.005  # Target network update rate
+  alpha: 0.2  # Entropy coefficient (can be auto-tuned)
+
+  # Training settings
+  total_timesteps: 500000
+  learning_starts: 10000
+  train_freq: 1
+  gradient_steps: 1
+
+  # Evaluation
+  eval_freq: 10000
+  n_eval_episodes: 10
+
+# Experiment Configuration
+experiment:
+  seed: 42
+  n_runs: 5  # Number of runs for statistical significance
+  save_dir: "results"
+  render_eval: false
+  record_video: true
+  log_interval: 1000
