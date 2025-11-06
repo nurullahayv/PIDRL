@@ -175,6 +175,36 @@ python test_environment.py
 
 ## 🎮 Quick Start
 
+### 🚀 NEW: Integrated Multi-Agent System
+
+**The Complete System: Geographic Coordinates + Egocentric HUD Perspectives!**
+
+```bash
+# Full integrated demo: Global map + Individual HUDs for each agent
+python demo_integrated.py                    # 4 agents, 2 teams
+python demo_integrated.py --agents 6         # 6 agents
+python demo_integrated.py --teams 3          # 3 teams
+```
+
+**What you see:**
+- **LEFT PANEL**: Global geographic map
+  - All agents moving in 3D arena (top-down view)
+  - Colored trajectory trails for each agent
+  - Real-time maneuvering in geographic coordinates
+
+- **RIGHT PANELS**: Egocentric HUDs (2x2 grid)
+  - Each agent has own pursuit-evasion view
+  - Agent always at center of own HUD
+  - Enemies shown relative to agent's perspective
+  - Phase 1 style dogfight HUD for each agent
+
+**This integrates everything:**
+- ✅ Global 3D arena with geographic coordinates (Phase 3-5)
+- ✅ Individual egocentric perspectives (Phase 1-2)
+- ✅ Multi-agent coordination (Phase 4)
+- ✅ Real-time trajectory visualization
+- ✅ Simultaneous multi-view rendering
+
 ### 1. Demo Visualization
 
 **🆕 NEW: 2.5D Demo with 3D Controllers and Depth Perception**
