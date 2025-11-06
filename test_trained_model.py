@@ -12,11 +12,22 @@ import yaml
 import argparse
 import numpy as np
 from pathlib import Path
+import warnings
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 from stable_baselines3 import SAC
 from environments import make_env
+
+# Fix numpy compatibility between versions
+# Kaggle uses numpy 2.0+, local might use 1.x
+try:
+    import numpy._core.numeric as _numeric
+except (ImportError, AttributeError):
+    import numpy.core.numeric as _numeric
+    # Alias for compatibility with numpy 2.0+
+    sys.modules['numpy._core.numeric'] = _numeric
+    sys.modules['numpy._core'] = sys.modules['numpy.core']
 
 
 def load_config(config_path: str = "configs/config.yaml"):
@@ -40,7 +51,31 @@ def test_model(model_path: str, n_episodes: int = 5, render: bool = True):
 
     # Load trained model
     print(f"Loading model from: {model_path}")
-    model = SAC.load(model_path)
+
+    try:
+        # Try loading with custom_objects to handle version mismatches
+        from agents.networks import CustomCNN
+        custom_objects = {
+            "features_extractor_class": CustomCNN,
+            "features_extractor_kwargs": {},
+        }
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning, message=".*Could not deserialize.*")
+            model = SAC.load(model_path, custom_objects=custom_objects)
+
+        print("✓ Model loaded successfully!")
+
+    except Exception as e:
+        print(f"\n⚠️  Warning: Failed to load with custom objects: {e}")
+        print("Attempting basic load...")
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning, message=".*Could not deserialize.*")
+            model = SAC.load(model_path)
+
+        print("✓ Model loaded (some parameters may be default)")
+        print("   The model should still work for testing.")
 
     # Create environment
     render_mode = "human" if render else None

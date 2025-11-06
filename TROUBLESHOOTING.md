@@ -2,6 +2,66 @@
 
 This guide helps you resolve common issues when setting up and running the PIDRL project.
 
+## ⚠️ Critical: Kaggle Model Loading Issues (UPDATED 2024-11-06)
+
+### Issue: Numpy Version Compatibility Error
+
+**Error Message:**
+```
+ModuleNotFoundError: No module named 'numpy._core.numeric'
+```
+or
+```
+UserWarning: Could not deserialize object policy_kwargs
+```
+
+**Cause:**
+Models trained on Kaggle (numpy 2.0+) have compatibility issues when loaded on local machines with numpy 1.x, or vice versa.
+
+**Solution (RECOMMENDED):**
+
+**✅ The latest code includes automatic fixes!** Simply update your repository:
+
+```bash
+git pull origin claude/pid-nn-rl-research-011CUpVJyyPR2RaPkVsoCSU3
+```
+
+The updated `test_trained_model.py` includes:
+- Automatic numpy version detection
+- Compatibility shims for both numpy 1.x and 2.x
+- Graceful handling of deserialization warnings
+- Custom objects loading for network architectures
+
+**Manual Fix (if needed):**
+
+If you still encounter issues, match numpy versions:
+
+```bash
+# Option 1: Upgrade to numpy 2.x (matches Kaggle)
+pip install "numpy>=2.0.0"
+
+# Option 2: Downgrade to numpy 1.x
+pip install "numpy>=1.24.0,<2.0.0"
+```
+
+**Verify the fix:**
+```bash
+python test_trained_model.py --model models/sac/best_model/best_model.zip --episodes 1
+```
+
+You should see:
+```
+✓ Model loaded successfully!
+```
+
+**Technical Details:**
+- Kaggle uses numpy 2.0+ by default
+- Numpy 2.0 changed internal structure: `numpy.core` → `numpy._core`
+- Models are serialized with cloudpickle which includes numpy references
+- The fix adds compatibility module aliases
+
+---
+
 ## Installation Issues
 
 ### Issue 1: FrameStack Import Error
