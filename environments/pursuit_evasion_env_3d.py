@@ -86,6 +86,7 @@ class PursuitEvasion3DEnv(gym.Env):
         reward_scale: float = 0.01,
         num_targets: int = 1,
         render_mode: Optional[str] = None,
+        target_controller: Optional[Any] = None,  # NEW: Optional controller for target
     ):
         super().__init__()
 
@@ -109,6 +110,9 @@ class PursuitEvasion3DEnv(gym.Env):
         self.reward_scale = reward_scale
         self.num_targets = num_targets
         self.render_mode = render_mode
+
+        # Target controller (if provided)
+        self.target_controller = target_controller
 
         # Reward system parameters
         self.focus_time_threshold = 50  # 5 seconds @ dt=0.1 = 50 steps
@@ -242,27 +246,41 @@ class PursuitEvasion3DEnv(gym.Env):
         # IMPORTANT: Agent stays at origin in egocentric frame
         # self.agent_pos remains [0, 0, 0] - we never update it!
 
-        # Update all targets with evasion + Brownian motion (in 3D)
+        # Update all targets
         for target in self.targets:
-            # Evasion component: move away from agent (agent is always at origin in egocentric frame)
-            relative_pos = target.position  # Since agent_pos = [0,0,0]
-            distance = np.linalg.norm(relative_pos)
-
-            if distance > 0.1:
-                # Evasion acceleration (proportional to agent's threat)
-                evasion_direction = relative_pos / distance
-                agent_speed = np.linalg.norm(self.agent_vel)
-                threat_level = agent_speed / (distance + 1.0)  # Higher threat when agent is fast and close
-                evasion_acc = evasion_direction * self.target_evasion_strength * threat_level
+            # Get target acceleration from controller or use default behavior
+            if self.target_controller is not None:
+                # Use provided controller (e.g., PID evader or RL agent)
+                target_action, _ = self.target_controller.predict(
+                    target.position,
+                    target.velocity,
+                    deterministic=True
+                )
+                # Scale to max acceleration
+                target_acc = target_action * self.max_acceleration
             else:
-                evasion_acc = np.zeros(3, dtype=np.float32)
+                # Default behavior: Evasion + Brownian motion
+                # Evasion component: move away from agent (agent is always at origin in egocentric frame)
+                relative_pos = target.position  # Since agent_pos = [0,0,0]
+                distance = np.linalg.norm(relative_pos)
 
-            # Brownian component for randomness
-            brownian_acc = self.np_random.normal(0, self.target_brownian_std, size=3)
+                if distance > 0.1:
+                    # Evasion acceleration (proportional to agent's threat)
+                    evasion_direction = relative_pos / distance
+                    agent_speed = np.linalg.norm(self.agent_vel)
+                    threat_level = agent_speed / (distance + 1.0)  # Higher threat when agent is fast and close
+                    evasion_acc = evasion_direction * self.target_evasion_strength * threat_level
+                else:
+                    evasion_acc = np.zeros(3, dtype=np.float32)
 
-            # Combined acceleration
-            total_acc = evasion_acc + brownian_acc
-            target.velocity = self.friction * target.velocity + total_acc * self.dt
+                # Brownian component for randomness
+                brownian_acc = self.np_random.normal(0, self.target_brownian_std, size=3)
+
+                # Combined acceleration
+                target_acc = evasion_acc + brownian_acc
+
+            # Update target velocity with acceleration
+            target.velocity = self.friction * target.velocity + target_acc * self.dt
 
             # Clip target velocity (targets can be VERY agile!)
             target_vel_magnitude = np.linalg.norm(target.velocity)
