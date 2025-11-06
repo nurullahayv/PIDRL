@@ -52,6 +52,7 @@ python test_trained_model.py --model models/sac/best_model/best_model.zip --epis
 You should see:
 ```
 ✓ Model loaded successfully!
+Testing model for 1 episodes...
 ```
 
 **Technical Details:**
@@ -59,6 +60,33 @@ You should see:
 - Numpy 2.0 changed internal structure: `numpy.core` → `numpy._core`
 - Models are serialized with cloudpickle which includes numpy references
 - The fix adds compatibility module aliases
+
+### Related Issue: LazyFrames AttributeError
+
+**Error Message:**
+```
+AttributeError: 'LazyFrames' object has no attribute 'reshape'
+```
+
+**Cause:**
+The FrameStack wrapper returns `LazyFrames` objects, but stable-baselines3's `model.predict()` expects numpy arrays.
+
+**Solution:**
+The latest `test_trained_model.py` automatically converts LazyFrames to numpy arrays. Update your code:
+
+```bash
+git pull origin claude/pid-nn-rl-research-011CUpVJyyPR2RaPkVsoCSU3
+```
+
+**Manual fix** (if needed):
+```python
+# After env.reset() and env.step()
+obs, info = env.reset()
+obs = np.array(obs)  # Convert LazyFrames to numpy
+
+obs, reward, terminated, truncated, info = env.step(action)
+obs = np.array(obs)  # Convert LazyFrames to numpy
+```
 
 ---
 
