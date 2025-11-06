@@ -160,15 +160,26 @@ class MATLABStyle3DVisualizer:
 
         # Draw agents and their components
         for agent in agents:
-            if not agent.alive:
-                continue
-
-            # Agent color (normalized to 0-1)
-            color = tuple(c / 255.0 for c in agent.color)
+            # Support both dict and object formats
+            if isinstance(agent, dict):
+                agent_id = agent['id']
+                position = np.array(agent['position'])
+                orientation = np.array(agent['orientation'])
+                color = agent['color']
+                trajectory = agent['trajectory']
+            else:
+                # Object format
+                if not agent.alive:
+                    continue
+                agent_id = agent.id
+                position = agent.position
+                orientation = agent.orientation
+                color = tuple(c / 255.0 for c in agent.color)
+                trajectory = agent.trajectory
 
             # 1. Draw trajectory
-            if len(agent.trajectory) > 1:
-                traj_array = np.array(list(agent.trajectory))
+            if len(trajectory) > 1:
+                traj_array = np.array(list(trajectory))
                 self.ax.plot(
                     traj_array[:, 0],
                     traj_array[:, 1],
@@ -176,44 +187,44 @@ class MATLABStyle3DVisualizer:
                     color=color,
                     alpha=0.5,
                     linewidth=1.5,
-                    label=f'Agent {agent.id} trajectory'
+                    label=f'Agent {agent_id} trajectory'
                 )
 
             # 2. Draw agent position (larger marker)
             self.ax.scatter(
-                agent.position[0],
-                agent.position[1],
-                agent.position[2],
+                position[0],
+                position[1],
+                position[2],
                 color=color,
                 s=200,  # Size
                 marker='o',
                 edgecolors='black',
                 linewidths=1.5,
-                label=f'Agent {agent.id}'
+                label=f'Agent {agent_id}'
             )
 
             # 3. Draw orientation arrow
             arrow_length = 50.0
-            arrow_end = agent.position + agent.orientation * arrow_length
+            arrow_end = position + orientation * arrow_length
             self.ax.plot(
-                [agent.position[0], arrow_end[0]],
-                [agent.position[1], arrow_end[1]],
-                [agent.position[2], arrow_end[2]],
+                [position[0], arrow_end[0]],
+                [position[1], arrow_end[1]],
+                [position[2], arrow_end[2]],
                 color=color,
                 linewidth=2,
                 linestyle='--'
             )
 
             # 4. Draw FOV cone
-            cone = self._create_fov_cone(agent.position, agent.orientation, color, alpha=0.15)
+            cone = self._create_fov_cone(position, orientation, color, alpha=0.15)
             self.ax.add_collection3d(cone)
 
             # 5. Add agent ID text
             self.ax.text(
-                agent.position[0],
-                agent.position[1],
-                agent.position[2] + 30,
-                f'#{agent.id}',
+                position[0],
+                position[1],
+                position[2] + 30,
+                f'#{agent_id}',
                 fontsize=9,
                 color='black',
                 ha='center'
