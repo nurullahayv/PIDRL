@@ -23,14 +23,14 @@ environment:
   target_brownian_std: 3.0  # Standard deviation of Brownian motion (increased for agility)
   target_evasion_strength: 1.5  # How strongly targets evade from agent (increased for aggressive evasion)
   target_max_speed_ratio: 0.9  # Target max speed as ratio of agent max speed (0.9 = 90%, very agile!)
-  target_size: 2.0  # Base radius of target in world units
+  target_size: 4.0  # Base radius of target in world units (INCREASED for better visibility)
 
   # Agent settings
   agent_size: 1.5  # Radius of agent in world units
 
   # Episode settings
   max_steps: 500
-  success_threshold: 5.0  # 3D distance considered "successful tracking"
+  success_threshold: 9.0  # 30% of view_size (30.0 * 0.3 = 9.0) - inner square focus area
 
   # Reward settings
   reward_scale: 0.01  # Scale factor for distance-based reward

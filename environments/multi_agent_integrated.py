@@ -20,6 +20,13 @@ from gymnasium import spaces
 import pygame
 from typing import List, Tuple, Dict, Any, Optional
 from collections import deque
+import sys
+import os
+
+# Import visualizers
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from utils.visualizer_3d import MATLABStyle3DVisualizer
+from utils.hud_renderer_3d import HUDRenderer3D
 
 
 class AgentWithPerspective:
@@ -125,6 +132,11 @@ class MultiAgentIntegratedEnv(gym.Env):
         self.clock = None
         self.global_map_surface = None
         self.hud_surfaces = {}  # One HUD per agent
+
+        # Visualizers
+        self.visualizer_3d = None  # MATLAB-style 3D visualizer
+        self.hud_renderers = {}    # HUD renderers for each agent
+        self.success_threshold = 9.0  # 30% of view_size for focus success
 
         self.step_count = 0
         self.max_steps = 3000
@@ -233,119 +245,92 @@ class MultiAgentIntegratedEnv(gym.Env):
 
     def _render_global_map(self, surface: pygame.Surface):
         """
-        Render global geographic view (top-down).
-        Shows all agents and their trajectories.
+        Render global geographic view using MATLAB-style 3D visualization.
+        Shows all agents, their trajectories, and FOV cones.
         """
-        surface.fill((20, 20, 40))
+        if self.visualizer_3d is None:
+            # Initialize on first render
+            self.visualizer_3d = MATLABStyle3DVisualizer(
+                arena_size=self.arena_size,
+                fov_angle=60.0,  # degrees
+                fov_range=self.fov_range,
+            )
 
-        # Arena bounds
-        width, height = surface.get_size()
-        center_x, center_y = width // 2, height // 2
-        scale = min(width, height) / self.arena_size
-
-        # Draw arena boundary
-        arena_rect_size = int(self.arena_size * scale)
-        pygame.draw.rect(
-            surface,
-            (60, 60, 80),
-            (center_x - arena_rect_size // 2, center_y - arena_rect_size // 2,
-             arena_rect_size, arena_rect_size),
-            2
-        )
-
-        # Draw trajectories
-        for agent in self.agents:
-            if not agent.alive or len(agent.trajectory) < 2:
-                continue
-
-            # Draw trajectory line
-            points = []
-            for pos in agent.trajectory:
-                x = int(center_x + pos[0] * scale)
-                y = int(center_y - pos[1] * scale)
-                points.append((x, y))
-
-            if len(points) >= 2:
-                pygame.draw.lines(surface, agent.color, False, points, 1)
-
-        # Draw agents
+        # Prepare agent data for visualizer
+        agent_data = []
         for agent in self.agents:
             if not agent.alive:
                 continue
 
-            x = int(center_x + agent.position[0] * scale)
-            y = int(center_y - agent.position[1] * scale)
+            agent_data.append({
+                'id': agent.id,
+                'position': agent.position,
+                'orientation': agent.orientation,
+                'color': tuple(c / 255.0 for c in agent.color),  # Normalize to [0, 1]
+                'trajectory': list(agent.trajectory),
+                'team': agent.team,
+            })
 
-            # Draw agent
-            pygame.draw.circle(surface, agent.color, (x, y), 6)
+        # Render 3D view
+        rendered_surface = self.visualizer_3d.render(agent_data)
 
-            # Draw orientation arrow
-            orient_2d = agent.orientation[:2]
-            if np.linalg.norm(orient_2d) > 0.1:
-                orient_2d = orient_2d / np.linalg.norm(orient_2d)
-                end_x = int(x + orient_2d[0] * 15)
-                end_y = int(y - orient_2d[1] * 15)
-                pygame.draw.line(surface, agent.color, (x, y), (end_x, end_y), 2)
-
-            # Draw agent ID
-            font = pygame.font.Font(None, 20)
-            id_text = font.render(str(agent.id), True, (255, 255, 255))
-            surface.blit(id_text, (x - 5, y - 20))
-
-        # Draw title
-        font = pygame.font.Font(None, 24)
-        title = font.render("Global Arena - Geographic Coordinates", True, (255, 255, 255))
-        surface.blit(title, (10, 10))
+        # Blit to target surface
+        surface.blit(rendered_surface, (0, 0))
 
     def _render_egocentric_hud(self, agent: AgentWithPerspective, surface: pygame.Surface):
         """
-        Render egocentric HUD for specific agent.
+        Render egocentric HUD for specific agent using demo_3d style.
         This is the pursuit-evasion view (Phase 1 style).
         """
-        surface.fill((10, 10, 20))
-
-        # Draw frame (if available)
-        if agent.egocentric_frame is not None:
-            # Scale up to surface size
+        # Initialize HUD renderer for this agent if needed
+        if agent.id not in self.hud_renderers:
             width, height = surface.get_size()
-            scaled_frame = pygame.surfarray.make_surface(
-                np.repeat(np.repeat(agent.egocentric_frame, width // self.frame_size, axis=0),
-                          height // self.frame_size, axis=1)
+            self.hud_renderers[agent.id] = HUDRenderer3D(
+                frame_size=self.frame_size,
+                view_size=self.view_size,
+                depth_range=(10.0, 50.0),
+                success_threshold=self.success_threshold,
+                target_size=4.0,
+                agent_size=1.5,
+                render_size=min(width, height),
             )
-            surface.blit(scaled_frame, (0, 0))
 
-        # Draw crosshair (agent at center)
-        center_x, center_y = surface.get_width() // 2, surface.get_height() // 2
-        pygame.draw.line(surface, (0, 255, 0), (center_x - 15, center_y), (center_x + 15, center_y), 2)
-        pygame.draw.line(surface, (0, 255, 0), (center_x, center_y - 15), (center_x, center_y + 15), 2)
+        # Find all enemies (targets from agent's perspective)
+        targets = []
+        for other in self.agents:
+            if other.id == agent.id or not other.alive:
+                continue
+            if self.num_teams > 0 and other.team == agent.team:
+                continue
 
-        # Draw FOV boundary (square)
-        border_margin = 20
-        pygame.draw.rect(
-            surface,
-            (100, 100, 120),
-            (border_margin, border_margin,
-             surface.get_width() - 2 * border_margin,
-             surface.get_height() - 2 * border_margin),
-            2
+            # Get position in agent's egocentric frame
+            relative_pos = other.position - agent.position
+
+            # Simple rotation (align to agent's orientation)
+            # For full implementation, would use rotation matrix
+            relative_vel = other.velocity - agent.velocity
+
+            targets.append({
+                'position': relative_pos,
+                'velocity': relative_vel,
+                'team': other.team,
+            })
+
+        # Get environment info for HUD
+        info = {
+            'mode': 'PURSUIT' if targets else 'SEARCH',
+        }
+
+        # Render HUD
+        hud_surface = self.hud_renderers[agent.id].render(
+            agent_velocity=agent.velocity,
+            targets=targets,
+            info=info,
+            agent_id=agent.id,
         )
 
-        # Draw HUD info
-        font = pygame.font.Font(None, 20)
-
-        # Agent info
-        info_lines = [
-            f"Agent {agent.id} - Team {agent.team}",
-            f"Health: {agent.health:.0f}%",
-            f"Velocity: {np.linalg.norm(agent.velocity):.1f}",
-            f"Altitude: {agent.position[2]:.0f}m",
-        ]
-
-        y_offset = 10
-        for line in info_lines:
-            text = font.render(line, True, agent.color)
-            surface.blit(text, (10, y_offset))
-            y_offset += 20
+        # Blit to target surface
+        surface.blit(hud_surface, (0, 0))
 
     def reset(self, seed: Optional[int] = None, options: Optional[Dict] = None) -> Tuple[np.ndarray, Dict]:
         """Reset environment."""
@@ -443,7 +428,7 @@ class MultiAgentIntegratedEnv(gym.Env):
         # Get observation for agent 0
         obs = self._get_egocentric_observation(agent)
 
-        # Simple reward
+        # Focus-based reward (matching demo_3d style with 30% threshold)
         if agent.alive:
             nearest_dist = float('inf')
             for other in self.agents:
@@ -455,9 +440,19 @@ class MultiAgentIntegratedEnv(gym.Env):
                 dist = np.linalg.norm(other.position - agent.position)
                 nearest_dist = min(nearest_dist, dist)
 
-            reward = 1.0 - (nearest_dist / self.fov_range) if nearest_dist < float('inf') else -1.0
+            if nearest_dist < float('inf'):
+                # Reward structure:
+                # - In focus (< success_threshold=9.0): +1.0 reward
+                # - Outside focus: negative reward based on distance
+                if nearest_dist < self.success_threshold:
+                    reward = 1.0  # Focus success!
+                else:
+                    # Linear penalty from threshold to FOV range
+                    reward = -0.1 * (nearest_dist / self.fov_range)
+            else:
+                reward = -1.0  # No target found
         else:
-            reward = -10.0
+            reward = -10.0  # Agent destroyed
 
         # Termination
         num_alive = sum(1 for a in self.agents if a.alive)
