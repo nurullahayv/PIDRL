@@ -291,16 +291,17 @@ class PursuitEvasion3DEnv(gym.Env):
         # NEW REWARD SYSTEM: Focus-based rewards
         in_focus = distance_3d < self.success_threshold
 
+        # AGENT REWARD (pursuer)
         if in_focus:
             # Target is in focus area (within success_threshold)
             self.steps_in_focus += 1
 
             # Positive reward for keeping target in focus
-            reward = 0.1  # Continuous positive reward per step in focus
+            agent_reward = 0.1  # Continuous positive reward per step in focus
 
             # Check if completed 5 seconds in focus
             if self.steps_in_focus >= self.focus_time_threshold:
-                reward += self.focus_bonus  # +10 bonus for 5 seconds
+                agent_reward += self.focus_bonus  # +10 bonus for 5 seconds
                 self.steps_in_focus = 0  # Reset counter for next cycle
                 self.was_near_completion = False
 
@@ -312,14 +313,33 @@ class PursuitEvasion3DEnv(gym.Env):
             # Target escaped focus area
             # Check if was about to complete 5 seconds
             if self.was_near_completion:
-                reward = self.escape_penalty  # -2 penalty for escaping near completion
+                agent_reward = self.escape_penalty  # -2 penalty for escaping near completion
                 self.was_near_completion = False
             else:
                 # Regular penalty for being outside
-                reward = -self.outside_penalty_scale * distance_3d
+                agent_reward = -self.outside_penalty_scale * distance_3d
 
             # Reset focus counter
             self.steps_in_focus = 0
+
+        # TARGET REWARD (evader) - OPPOSITE of agent!
+        # Target wants to stay OUT of focus and escape
+        if in_focus:
+            # Penalty for being caught in focus
+            target_reward = -0.1  # Negative reward per step in focus (bad for target!)
+
+            # Large penalty if agent completes 5 seconds
+            if self.steps_in_focus >= self.focus_time_threshold:
+                target_reward -= 10.0  # -10 penalty (agent got +10, target gets -10)
+        else:
+            # Reward for escaping/staying outside
+            if self.was_near_completion:
+                target_reward = 2.0  # +2 reward for successful escape near completion!
+            else:
+                # Small reward for being outside
+                target_reward = 0.05 * distance_3d  # Further = better for target
+
+        reward = agent_reward  # Main reward is for agent (for backward compatibility)
 
         # Check termination conditions
         self.step_count += 1
@@ -343,6 +363,9 @@ class PursuitEvasion3DEnv(gym.Env):
         info["in_focus"] = in_focus
         info["steps_in_focus"] = self.steps_in_focus
         info["focus_progress"] = self.steps_in_focus / self.focus_time_threshold
+        # Competitive MARL: separate rewards
+        info["agent_reward"] = agent_reward
+        info["target_reward"] = target_reward
 
         return obs, reward, terminated, truncated, info
 
