@@ -1,10 +1,6 @@
 """Controllers package for pursuit-evasion control."""
 
-from controllers.pid_controller import PIDController, PIDAgent
-from controllers.kalman_filter import KalmanFilter
-from controllers.kalman_pid_controller import KalmanPIDController, KalmanPIDAgent
-
-# 3D controllers
+# 3D controllers for agent (pursuer)
 from controllers.pid_controller_3d import PIDController3D, PIDAgent3D
 from controllers.kalman_pid_controller_3d import (
     KalmanFilter3D,
@@ -12,17 +8,17 @@ from controllers.kalman_pid_controller_3d import (
     KalmanPIDAgent3D,
 )
 
+# 3D controller for target (evader)
+from controllers.target_evader_pid import TargetEvaderPID, TargetEvaderAgent
+
 __all__ = [
-    # 2D controllers
-    "PIDController",
-    "PIDAgent",
-    "KalmanFilter",
-    "KalmanPIDController",
-    "KalmanPIDAgent",
-    # 3D controllers
+    # Agent (pursuer) controllers
     "PIDController3D",
     "PIDAgent3D",
     "KalmanFilter3D",
     "KalmanPIDController3D",
     "KalmanPIDAgent3D",
+    # Target (evader) controllers
+    "TargetEvaderPID",
+    "TargetEvaderAgent",
 ]

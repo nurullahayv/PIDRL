@@ -35,12 +35,20 @@ environment:
   # Reward settings
   reward_scale: 0.01  # Scale factor for distance-based reward
 
-# PID Controller Configuration
+# PID Controller Configuration (for agent/pursuer)
 pid:
   kp: 0.5  # Proportional gain
   ki: 0.01  # Integral gain
   kd: 0.2  # Derivative gain
   integral_limit: 10.0  # Anti-windup limit
+
+# Target Evader PID Configuration (for target/evader)
+target_evader:
+  kp: 0.8  # Proportional gain (higher for aggressive evasion)
+  ki: 0.02  # Integral gain
+  kd: 0.3  # Derivative gain (higher for smooth maneuvers)
+  escape_margin: 5.0  # Distance from FOV boundary to target
+  randomness: 0.3  # Amount of random perturbation (0-1)
 
 # Visual Detection Configuration (for PID controllers)
 visual_detection:
