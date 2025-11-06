@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import numpy as np
 from environments import make_env
-from controllers import PIDAgent3D, KalmanPIDAgent3D
+from controllers import PIDAgent3D, KalmanPIDAgent3D, TargetEvaderAgent
 
 
 def load_config(config_path: str):
@@ -45,6 +45,7 @@ def run_demo_3d(
     n_episodes: int = 5,
     num_targets: int = 1,
     controller_type: str = "pid",
+    use_target_evader: bool = False,
 ):
     """
     Run a demo of the 2.5D environment with 3D controller.
@@ -54,6 +55,7 @@ def run_demo_3d(
         n_episodes: Number of episodes to run
         num_targets: Number of targets to spawn
         controller_type: Type of controller ('pid', 'kalman-pid', or 'random')
+        use_target_evader: If True, target uses evader PID controller to escape
     """
     # Load configuration
     config = load_config(config_path)
@@ -63,17 +65,24 @@ def run_demo_3d(
         config["environment"] = {}
     config["environment"]["num_targets"] = num_targets
 
+    # Create target controller if requested
+    target_controller = None
+    if use_target_evader:
+        target_controller = TargetEvaderAgent(config)
+        print(f"✓ Target evader PID controller enabled!")
+
     # Create 2.5D environment with rendering
     print(f"\n{'='*60}")
-    print(f"2.5D DOGFIGHT HUD DEMO")
+    print(f"2.5D DOGFIGHT HUD DEMO - COMPETITIVE MODE")
     print(f"{'='*60}")
-    print(f"Controller: {controller_type.upper()}")
+    print(f"Agent Controller: {controller_type.upper()}")
+    print(f"Target Behavior: {'EVADER PID (Trying to escape!)' if use_target_evader else 'Brownian + Evasion (Default)'}")
     print(f"Initializing 2.5D environment with {num_targets} target(s)...")
     print(f"Action space: 3D acceleration (ax, ay, az)")
     print(f"Observation: Egocentric view with depth encoding")
     print(f"\nClose the window to stop the demo.\n")
 
-    env = make_env(config, render_mode="human", use_3d=True)
+    env = make_env(config, render_mode="human", use_3d=True, target_controller=target_controller)
 
     # Create controller
     if controller_type.lower() == "pid":
@@ -172,6 +181,11 @@ def main():
         default=1,
         help="Number of targets (1-5)",
     )
+    parser.add_argument(
+        "--target-evader",
+        action="store_true",
+        help="Use target evader PID controller (target tries to escape FOV)",
+    )
 
     args = parser.parse_args()
 
@@ -180,6 +194,7 @@ def main():
         n_episodes=args.n_episodes,
         num_targets=min(args.num_targets, 5),  # Cap at 5
         controller_type=args.controller,
+        use_target_evader=args.target_evader,
     )
 
 
