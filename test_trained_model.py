@@ -77,9 +77,20 @@ def test_model(model_path: str, n_episodes: int = 5, render: bool = True):
         print("✓ Model loaded (some parameters may be default)")
         print("   The model should still work for testing.")
 
-    # Create environment
+    # Detect if model is 2D or 3D based on action space
+    action_space_dim = model.action_space.shape[0]
+    use_3d = (action_space_dim == 3)
+
+    if use_3d:
+        print(f"\n✓ Detected 3D model (action space: {action_space_dim}D)")
+        print("  Using 3D environment with depth perception")
+    else:
+        print(f"\n✓ Detected 2D model (action space: {action_space_dim}D)")
+        print("  Using 2D environment (classic version)")
+
+    # Create environment matching the model's action space
     render_mode = "human" if render else None
-    env = make_env(config, render_mode=render_mode, use_3d=True)
+    env = make_env(config, render_mode=render_mode, use_3d=use_3d)
 
     print(f"\nTesting model for {n_episodes} episodes...")
     print("=" * 70)

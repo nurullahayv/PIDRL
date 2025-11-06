@@ -88,6 +88,42 @@ obs, reward, terminated, truncated, info = env.step(action)
 obs = np.array(obs)  # Convert LazyFrames to numpy
 ```
 
+### Related Issue: Action Space Dimension Mismatch
+
+**Error Message:**
+```
+ValueError: operands could not be broadcast together with shapes (3,) (2,)
+```
+
+**Cause:**
+Model was trained on 2D environment (action space: 2D with ax, ay) but test script tried to use 3D environment (action space: 3D with ax, ay, az).
+
+**Solution:**
+The latest `test_trained_model.py` automatically detects the model's action space dimension and uses the correct environment. Update your code:
+
+```bash
+git pull origin claude/pid-nn-rl-research-011CUpVJyyPR2RaPkVsoCSU3
+```
+
+**Manual detection:**
+```python
+# Check model's action space
+action_dim = model.action_space.shape[0]
+use_3d = (action_dim == 3)  # 3D if 3 dimensions, 2D if 2 dimensions
+env = make_env(config, use_3d=use_3d)
+```
+
+**Expected output:**
+```
+✓ Detected 2D model (action space: 2D)
+  Using 2D environment (classic version)
+```
+or
+```
+✓ Detected 3D model (action space: 3D)
+  Using 3D environment with depth perception
+```
+
 ---
 
 ## Installation Issues
