@@ -6,7 +6,7 @@ environment:
 
   # Physics settings
   dt: 0.1  # Time step in seconds
-  max_velocity: 10.0  # Maximum velocity magnitude
+  max_velocity: 10.0  # Maximum velocity magnitude for agent
   max_acceleration: 1.0  # Maximum acceleration magnitude
   max_angular_velocity: 2.0  # Maximum turning rate (rad/s) - flight dynamics limit
   friction: 0.95  # Velocity damping factor
@@ -20,8 +20,9 @@ environment:
   num_targets: 1  # Number of targets to track (multi-target capability)
 
   # Target settings
-  target_brownian_std: 2.0  # Standard deviation of Brownian motion
-  target_evasion_strength: 0.5  # How strongly targets evade from agent (0=none, 1=aggressive)
+  target_brownian_std: 3.0  # Standard deviation of Brownian motion (increased for agility)
+  target_evasion_strength: 1.5  # How strongly targets evade from agent (increased for aggressive evasion)
+  target_max_speed_ratio: 0.9  # Target max speed as ratio of agent max speed (0.9 = 90%, very agile!)
   target_size: 2.0  # Base radius of target in world units
 
   # Agent settings
@@ -40,6 +41,11 @@ pid:
   ki: 0.01  # Integral gain
   kd: 0.2  # Derivative gain
   integral_limit: 10.0  # Anti-windup limit
+
+# Visual Detection Configuration (for PID controllers)
+visual_detection:
+  min_contour_area: 5  # Minimum target size in pixels (lowered for small targets)
+  blur_kernel: 3  # Gaussian blur kernel size (smaller = less smoothing, better for tiny targets)
 
 # Kalman Filter Configuration
 kalman:

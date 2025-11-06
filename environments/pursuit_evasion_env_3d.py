@@ -78,6 +78,7 @@ class PursuitEvasion3DEnv(gym.Env):
         depth_range: Tuple[float, float] = (10.0, 50.0),  # (min_z, max_z)
         target_brownian_std: float = 2.0,
         target_evasion_strength: float = 0.5,  # How strongly targets evade
+        target_max_speed_ratio: float = 0.9,  # Target max speed as ratio of agent max speed
         target_size: float = 2.0,
         agent_size: float = 1.5,
         max_steps: int = 500,
@@ -100,6 +101,7 @@ class PursuitEvasion3DEnv(gym.Env):
         self.min_depth, self.max_depth = depth_range
         self.target_brownian_std = target_brownian_std
         self.target_evasion_strength = target_evasion_strength
+        self.target_max_speed = max_velocity * target_max_speed_ratio  # Target can be VERY fast
         self.target_size = target_size
         self.agent_size = agent_size
         self.max_steps = max_steps
@@ -248,11 +250,10 @@ class PursuitEvasion3DEnv(gym.Env):
             total_acc = evasion_acc + brownian_acc
             target.velocity = self.friction * target.velocity + total_acc * self.dt
 
-            # Clip target velocity
+            # Clip target velocity (targets can be VERY agile!)
             target_vel_magnitude = np.linalg.norm(target.velocity)
-            max_target_vel = self.max_velocity * 0.6  # Targets can move 60% of agent max speed
-            if target_vel_magnitude > max_target_vel:
-                target.velocity = target.velocity / target_vel_magnitude * max_target_vel
+            if target_vel_magnitude > self.target_max_speed:
+                target.velocity = target.velocity / target_vel_magnitude * self.target_max_speed
 
             # KEY CHANGE: Relative motion in egocentric frame
             # Target's actual movement = target_vector - agent_vector

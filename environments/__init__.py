@@ -86,6 +86,7 @@ def make_env(config: dict, render_mode=None, use_3d=False):
             depth_range=env_config.get("depth_range", (10.0, 50.0)),
             target_brownian_std=env_config.get("target_brownian_std", 2.0),
             target_evasion_strength=env_config.get("target_evasion_strength", 0.5),
+            target_max_speed_ratio=env_config.get("target_max_speed_ratio", 0.9),
             target_size=env_config.get("target_size", 2.0),
             agent_size=env_config.get("agent_size", 1.5),
             max_steps=env_config.get("max_steps", 500),

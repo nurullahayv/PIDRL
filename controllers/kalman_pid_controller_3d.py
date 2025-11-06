@@ -398,7 +398,13 @@ class KalmanPIDAgent3D:
 
         depth_range = env_config.get("depth_range", [10.0, 50.0])
 
-        self.controller = KalmanPIDController3D(
+        # Support both view_size (new, square FOV) and view_radius (old, backward compat)
+        view_size = env_config.get("view_size", env_config.get("view_radius", 30.0))
+
+        # Get visual detection params (for tiny target detection)
+        detection_config = config.get("visual_detection", {})
+
+        controller = KalmanPIDController3D(
             # PID parameters
             kp_xy=pid_config.get("kp", 0.5),
             ki_xy=pid_config.get("ki", 0.01),
@@ -416,12 +422,23 @@ class KalmanPIDAgent3D:
             # Environment parameters
             dt=env_config.get("dt", 0.1),
             frame_size=env_config.get("frame_size", 64),
-            view_radius=env_config.get("view_radius", 30.0),
+            view_radius=view_size,  # Note: parameter name is view_radius for backward compat
             min_depth=depth_range[0],
             max_depth=depth_range[1],
             target_base_size=env_config.get("target_size", 2.0),
             use_velocity_feedforward=True,
         )
+
+        # Override detector with better settings for small targets
+        if detection_config:
+            from utils.visual_detection import VisualDetector
+            controller.detector = VisualDetector(
+                frame_size=env_config.get("frame_size", 64),
+                min_contour_area=detection_config.get("min_contour_area", 5),
+                blur_kernel=detection_config.get("blur_kernel", 3),
+            )
+
+        self.controller = controller
 
     def predict(
         self, observation: np.ndarray, deterministic: bool = True
