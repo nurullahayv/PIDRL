@@ -14,6 +14,27 @@ We've upgraded from 2D to **2.5D with depth perception**:
 - **Multi-Target Support**: Track multiple color-coded targets simultaneously
 - **Range Management**: Must control closure rate and maintain optimal engagement range
 
+### ⚔️ NEW: Competitive Multi-Agent RL (MARL)
+
+The environment now supports **competitive MARL** with opposing reward functions:
+
+**Agent (Pursuer) Rewards:**
+- **+0.1 per step** when target is in focus area
+- **+10 bonus** for keeping target in focus for 5 consecutive seconds
+- **-2 penalty** if target escapes when near completion (≥80% progress)
+- **-distance penalty** when target is outside focus
+
+**Target (Evader) Rewards:**
+- **-0.1 per step** when caught in focus area
+- **-10 penalty** if agent completes 5 seconds of tracking
+- **+2 reward** for successful escape when near agent's completion
+- **+distance reward** when outside focus area
+
+This creates a **zero-sum competitive game** where:
+- Agent learns to maintain focus and track aggressively
+- Target learns to evade and break tracking locks
+- Both can be trained with RL (currently target uses rule-based evasion)
+
 ### The Core Concept: 3D Error Vector Nullification
 
 Inspired by fighter jet dogfight HUDs, this project implements a **purely egocentric (first-person) control environment** where:
@@ -245,6 +266,82 @@ python test_trained_model.py --model models/sac_quick/best_model/best_model.zip 
 # Test full training
 python test_trained_model.py --model models/sac_full/best_model/best_model.zip --episodes 10
 ```
+
+## 🎮 Training on Kaggle with GPU
+
+**🚀 NEW: One-Click Kaggle Setup for Fast GPU Training**
+
+Train your agent on Kaggle's free GPU (Tesla T4 x2) in just a few steps! Full training (500k steps) takes ~2 hours instead of 10+ hours on CPU.
+
+### Quick Start on Kaggle
+
+1. **Upload the Kaggle Notebook** ([`kaggle_train.ipynb`](kaggle_train.ipynb))
+   - Go to [Kaggle Notebooks](https://www.kaggle.com/code)
+   - Click "New Notebook" → "Import Notebook" → Upload `kaggle_train.ipynb`
+
+2. **Enable GPU Acceleration**
+   - Settings → Accelerator → **GPU T4 x2**
+   - ⚠️ **CRITICAL**: Without GPU, training will be 5-10x slower!
+
+3. **Run All Cells**
+   - The notebook handles everything automatically:
+     - ✅ Clones repository
+     - ✅ Installs dependencies
+     - ✅ Checks GPU availability
+     - ✅ Tests environment
+     - ✅ Runs full training (500k steps)
+     - ✅ Evaluates and analyzes results
+
+4. **Download Trained Model**
+   - After training completes, download `trained_model.zip` from Output section
+   - Extract and use locally: `python test_trained_model.py --model path/to/best_model.zip`
+
+### Manual Kaggle Setup
+
+If you prefer to clone and run manually:
+
+```bash
+# In Kaggle notebook cell:
+!git clone https://github.com/nurullahayv/PIDRL.git
+%cd PIDRL
+
+# Run automated setup
+!python setup_kaggle.py
+
+# Quick test (1 minute)
+!python quick_train.py --test
+
+# Full training (2 hours with GPU)
+!python quick_train.py --full
+
+# Monitor in another cell
+%load_ext tensorboard
+%tensorboard --logdir logs/sac_full
+
+# Test trained model (no rendering in Kaggle)
+!python test_trained_model.py --model models/sac_full/best_model/best_model.zip --episodes 10 --no-render
+```
+
+### What Gets Trained?
+
+The agent learns:
+- ✅ **3D pursuit-evasion** with depth perception
+- ✅ **Focus-based tracking** with milestone rewards
+- ✅ **Competitive behavior** against evasive targets
+- ✅ **Flight dynamics** with turning rate constraints
+
+### Expected Performance
+
+After full training (500k steps):
+- Average reward: **~150-200** (focus-based rewards)
+- Focus time: **~70-80%** (target in focus area)
+- Tracking success rate: **~85-90%**
+
+Training curves will show in TensorBoard:
+- Reward progression
+- Policy loss
+- Value function estimates
+- Episode lengths
 
 ### 3. Evaluate All Methods
 
