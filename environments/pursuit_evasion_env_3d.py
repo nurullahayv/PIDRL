@@ -110,6 +110,16 @@ class PursuitEvasion3DEnv(gym.Env):
         self.num_targets = num_targets
         self.render_mode = render_mode
 
+        # Reward system parameters
+        self.focus_time_threshold = 50  # 5 seconds @ dt=0.1 = 50 steps
+        self.focus_bonus = 10.0  # Bonus for staying 5 seconds
+        self.escape_penalty = -2.0  # Penalty for escaping near completion
+        self.outside_penalty_scale = 0.05  # Penalty per step outside
+
+        # Tracking variables (initialized in reset)
+        self.steps_in_focus = 0
+        self.was_near_completion = False
+
         # Define action and observation spaces (3D actions now!)
         self.action_space = spaces.Box(
             low=-1.0, high=1.0, shape=(3,), dtype=np.float32
@@ -175,6 +185,10 @@ class PursuitEvasion3DEnv(gym.Env):
             self.targets.append(Target(target_pos, target_vel, color, name, self.target_size))
 
         self.step_count = 0
+
+        # Reset reward tracking
+        self.steps_in_focus = 0
+        self.was_near_completion = False
 
         # Get initial observation
         obs = self._get_observation()
@@ -273,7 +287,39 @@ class PursuitEvasion3DEnv(gym.Env):
         primary_target = self.targets[0]
         # Since agent is at origin in egocentric frame
         distance_3d = np.linalg.norm(primary_target.position)
-        reward = -self.reward_scale * (distance_3d ** 2)
+
+        # NEW REWARD SYSTEM: Focus-based rewards
+        in_focus = distance_3d < self.success_threshold
+
+        if in_focus:
+            # Target is in focus area (within success_threshold)
+            self.steps_in_focus += 1
+
+            # Positive reward for keeping target in focus
+            reward = 0.1  # Continuous positive reward per step in focus
+
+            # Check if completed 5 seconds in focus
+            if self.steps_in_focus >= self.focus_time_threshold:
+                reward += self.focus_bonus  # +10 bonus for 5 seconds
+                self.steps_in_focus = 0  # Reset counter for next cycle
+                self.was_near_completion = False
+
+            # Track if getting close to 5 seconds (last 20% of time)
+            if self.steps_in_focus >= self.focus_time_threshold * 0.8:
+                self.was_near_completion = True
+
+        else:
+            # Target escaped focus area
+            # Check if was about to complete 5 seconds
+            if self.was_near_completion:
+                reward = self.escape_penalty  # -2 penalty for escaping near completion
+                self.was_near_completion = False
+            else:
+                # Regular penalty for being outside
+                reward = -self.outside_penalty_scale * distance_3d
+
+            # Reset focus counter
+            self.steps_in_focus = 0
 
         # Check termination conditions
         self.step_count += 1
@@ -294,6 +340,9 @@ class PursuitEvasion3DEnv(gym.Env):
         info["distance_xy"] = np.linalg.norm(primary_target.position[:2])
         info["distance_z"] = abs(primary_target.position[2])
         info["success"] = distance_3d < self.success_threshold
+        info["in_focus"] = in_focus
+        info["steps_in_focus"] = self.steps_in_focus
+        info["focus_progress"] = self.steps_in_focus / self.focus_time_threshold
 
         return obs, reward, terminated, truncated, info
 
