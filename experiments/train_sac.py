@@ -85,9 +85,9 @@ def load_config(config_path: str) -> Dict[str, Any]:
     return config
 
 
-def make_sac_env(config: Dict[str, Any], seed: int = 0, render_mode=None):
+def make_sac_env(config: Dict[str, Any], seed: int = 0, render_mode=None, use_3d=True):
     """Create environment for SAC training."""
-    env = make_env(config, render_mode=render_mode)
+    env = make_env(config, render_mode=render_mode, use_3d=use_3d)
     env = Monitor(env)
     env.reset(seed=seed)
     return env

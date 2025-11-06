@@ -6,9 +6,9 @@ environment:
 
   # Physics settings
   dt: 0.1  # Time step in seconds
-  max_velocity: 10.0  # Maximum velocity magnitude for agent
-  max_acceleration: 1.0  # Maximum acceleration magnitude
-  max_angular_velocity: 2.0  # Maximum turning rate (rad/s) - flight dynamics limit
+  max_velocity: 15.0  # Maximum velocity magnitude for agent (increased for better pursuit)
+  max_acceleration: 1.5  # Maximum acceleration magnitude (increased for faster response)
+  max_angular_velocity: 2.5  # Maximum turning rate (rad/s) - increased agility
   friction: 0.95  # Velocity damping factor
 
   # World bounds

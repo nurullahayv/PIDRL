@@ -198,6 +198,27 @@ python demo.py sac --sac-model models/sac/final_model --n-episodes 3
 
 ### 2. Train SAC Agent
 
+**🚀 NEW: One-Click Training**
+
+We now have focus-based rewards for better learning:
+- ✅ **+0.1 reward/step** when target is in focus area
+- ✅ **+10 bonus** for keeping target in focus for 5 seconds
+- ✅ **-2 penalty** if escaping near completion
+- ✅ **Negative reward** when target is outside focus
+
+```bash
+# 🚀 QUICK TRAIN (50k steps, ~10 minutes) - RECOMMENDED FOR TESTING
+python quick_train.py
+
+# 🏋️  FULL TRAIN (500k steps, ~2 hours) - FOR BEST RESULTS
+python quick_train.py --full
+
+# 🧪 TEST RUN (5k steps, ~1 minute) - SANITY CHECK
+python quick_train.py --test
+```
+
+**Advanced training (manual control):**
+
 ```bash
 python experiments/train_sac.py \
     --config configs/config.yaml \
@@ -205,10 +226,24 @@ python experiments/train_sac.py \
     --tensorboard-log logs/sac
 ```
 
-Monitor training with TensorBoard:
+**Monitor training with TensorBoard:**
 
 ```bash
+# For quick_train.py outputs
+tensorboard --logdir logs/sac_quick  # or logs/sac_full
+
+# For manual training
 tensorboard --logdir logs/sac
+```
+
+**Test trained model:**
+
+```bash
+# Test best model from quick training
+python test_trained_model.py --model models/sac_quick/best_model/best_model.zip --episodes 5
+
+# Test full training
+python test_trained_model.py --model models/sac_full/best_model/best_model.zip --episodes 10
 ```
 
 ### 3. Evaluate All Methods
