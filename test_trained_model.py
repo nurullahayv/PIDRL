@@ -90,6 +90,7 @@ def test_model(model_path: str, n_episodes: int = 5, render: bool = True):
 
     for episode in range(n_episodes):
         obs, info = env.reset()
+        obs = np.array(obs)  # Convert LazyFrames to numpy array
         episode_reward = 0
         episode_length = 0
         total_focus_time = 0
@@ -104,6 +105,7 @@ def test_model(model_path: str, n_episodes: int = 5, render: bool = True):
 
             # Step environment
             obs, reward, terminated, truncated, info = env.step(action)
+            obs = np.array(obs)  # Convert LazyFrames to numpy array
             done = terminated or truncated
 
             episode_reward += reward
