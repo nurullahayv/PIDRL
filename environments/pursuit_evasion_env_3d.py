@@ -49,12 +49,18 @@ class PursuitEvasion3DEnv(gym.Env):
         - a_x, a_y: Lateral/vertical acceleration (steering)
         - a_z: Forward/backward acceleration (thrust/throttle)
 
-    Dynamics:
-        v_{t+1} = friction * v_t + a_t * dt
-        p_{t+1} = p_t + v_t * dt
+    Dynamics (Egocentric Frame):
+        Agent velocity: v_agent_{t+1} = friction * v_agent_t + a_agent_t * dt
+        Target velocity: v_target_{t+1} = friction * v_target_t + a_target_t * dt
+
+        Agent position: ALWAYS at origin [0, 0, 0] (egocentric)
+        Target position: p_target_{t+1} = p_target_t + (v_target - v_agent) * dt
+
+        IMPORTANT: Target's actual movement in agent frame = v_target - v_agent
+        This means the agent must generate velocity that keeps target in focus.
 
     Reward:
-        r_t = -reward_scale * ||p_target - p_agent||^2  (3D distance)
+        r_t = -reward_scale * ||p_target||^2  (3D distance from origin)
     """
 
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}
@@ -217,12 +223,13 @@ class PursuitEvasion3DEnv(gym.Env):
         if vel_magnitude > 0.1:
             self.agent_heading = self.agent_vel / vel_magnitude
 
-        self.agent_pos += self.agent_vel * self.dt
+        # IMPORTANT: Agent stays at origin in egocentric frame
+        # self.agent_pos remains [0, 0, 0] - we never update it!
 
         # Update all targets with evasion + Brownian motion (in 3D)
         for target in self.targets:
-            # Evasion component: move away from agent
-            relative_pos = target.position - self.agent_pos
+            # Evasion component: move away from agent (agent is always at origin in egocentric frame)
+            relative_pos = target.position  # Since agent_pos = [0,0,0]
             distance = np.linalg.norm(relative_pos)
 
             if distance > 0.1:
@@ -247,7 +254,11 @@ class PursuitEvasion3DEnv(gym.Env):
             if target_vel_magnitude > max_target_vel:
                 target.velocity = target.velocity / target_vel_magnitude * max_target_vel
 
-            target.position += target.velocity * self.dt
+            # KEY CHANGE: Relative motion in egocentric frame
+            # Target's actual movement = target_vector - agent_vector
+            # This is how target moves relative to agent (which is at origin)
+            relative_velocity = target.velocity - self.agent_vel
+            target.position += relative_velocity * self.dt
 
             # Keep target within reasonable z-bounds
             if target.position[2] < self.min_depth:
@@ -259,7 +270,8 @@ class PursuitEvasion3DEnv(gym.Env):
 
         # Calculate reward based on primary target (first one)
         primary_target = self.targets[0]
-        distance_3d = np.linalg.norm(primary_target.position - self.agent_pos)
+        # Since agent is at origin in egocentric frame
+        distance_3d = np.linalg.norm(primary_target.position)
         reward = -self.reward_scale * (distance_3d ** 2)
 
         # Check termination conditions
@@ -277,8 +289,9 @@ class PursuitEvasion3DEnv(gym.Env):
         obs = self._get_observation()
         info = self._get_info()
         info["distance_3d"] = distance_3d
-        info["distance_xy"] = np.linalg.norm(primary_target.position[:2] - self.agent_pos[:2])
-        info["distance_z"] = abs(primary_target.position[2] - self.agent_pos[2])
+        # Since agent is at origin
+        info["distance_xy"] = np.linalg.norm(primary_target.position[:2])
+        info["distance_z"] = abs(primary_target.position[2])
         info["success"] = distance_3d < self.success_threshold
 
         return obs, reward, terminated, truncated, info
@@ -298,8 +311,8 @@ class PursuitEvasion3DEnv(gym.Env):
 
         # Render all targets
         for target in self.targets:
-            # Calculate relative position in 3D
-            relative_pos_3d = target.position - self.agent_pos
+            # Calculate relative position in 3D (agent is at origin in egocentric frame)
+            relative_pos_3d = target.position  # Since agent_pos = [0, 0, 0]
 
             # Project to 2D view plane (x, y)
             relative_pos_2d = relative_pos_3d[:2]
@@ -400,7 +413,8 @@ class PursuitEvasion3DEnv(gym.Env):
 
         # 3. Draw all targets with depth-based rendering
         for idx, target in enumerate(self.targets):
-            relative_pos_3d = target.position - self.agent_pos
+            # Agent is at origin in egocentric frame
+            relative_pos_3d = target.position  # Since agent_pos = [0, 0, 0]
             relative_pos_2d = relative_pos_3d[:2]
             depth = relative_pos_3d[2]
 
@@ -512,9 +526,9 @@ class PursuitEvasion3DEnv(gym.Env):
         font_medium = pygame.font.Font(None, 32)
         font_small = pygame.font.Font(None, 24)
 
-        # Primary target info
+        # Primary target info (agent is at origin in egocentric frame)
         primary_target = self.targets[0]
-        relative_pos_3d = primary_target.position - self.agent_pos
+        relative_pos_3d = primary_target.position  # Since agent_pos = [0, 0, 0]
         distance_3d = np.linalg.norm(relative_pos_3d)
         distance_xy = np.linalg.norm(relative_pos_3d[:2])
         distance_z = abs(relative_pos_3d[2])
