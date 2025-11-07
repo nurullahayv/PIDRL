@@ -1,0 +1,17 @@
+# Competitive MARL Requirements
+
+# Core RL Framework
+gymnasium>=0.29.0
+stable-baselines3[extra]>=2.0.0
+
+# Deep Learning
+torch>=2.0.0
+
+# Numerical Computing
+numpy>=1.24.0
+
+# Visualization (for local testing only, not needed on Kaggle)
+pygame>=2.5.0
+
+# Optional: TensorBoard logging
+tensorboard>=2.14.0
