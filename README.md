@@ -1,585 +1,333 @@
-# Vision-Based Pursuit-Evasion Control: 2.5D Dogfight HUD Error Vector Nullification
+# 3D HUD Pursuit-Evasion: Modern Deep RL
 
-A comprehensive research project comparing classical control (PID, Kalman Filter + PID) with modern Deep Reinforcement Learning (SAC) for **3D error vector nullification** in an egocentric, dogfight HUD-inspired tracking environment with **depth perception and multi-target capability**.
+**A modern deep reinforcement learning framework for 3D pursuit-evasion with dogfight-inspired HUD visualization.**
 
-## 📋 Project Overview
+## 🎯 Project Overview
 
-### 🆕 NEW: 2.5D (Pseudo-3D) Upgrade
+### 3D HUD System
+Fighter jet inspired, egocentric (first-person) HUD where:
+- **Agent (pursuer)** is always centered with green crosshair
+- **Target (evader)** moves in 3D space with depth-based sizing (closer = larger)
+- **Cyan error vector** points from agent to target - the goal is to nullify this vector
+- **Real-time telemetry**: velocity vectors, radar boundaries, distance indicators, focus status
 
-We've upgraded from 2D to **2.5D with depth perception**:
+### Two Training Scenarios
 
-- **3D State Space**: Targets now have position (x, y, **z**) where z represents depth/range
-- **Visual Depth Encoding**: Depth is perceptually encoded as **target size** (closer = bigger, farther = smaller)
-- **3D Action Space**: Agent controls (ax, ay, **az**) - lateral steering + forward/backward thrust
-- **Multi-Target Support**: Track multiple color-coded targets simultaneously
-- **Range Management**: Must control closure rate and maintain optimal engagement range
+#### Scenario 1: RL Agent vs Random Target
+- Agent learns to track randomly moving target
+- Target uses Brownian motion + evasive maneuvers
+- Best for: Initial RL algorithm testing and baseline performance
 
-### ⚔️ NEW: Competitive Multi-Agent RL (MARL)
+#### Scenario 2: Competitive MARL (RL vs RL)
+- Both pursuer and evader are RL agents
+- Pursuer learns to catch, evader learns to escape
+- Zero-sum competitive game with alternating training
+- Best for: Advanced multi-agent research
 
-The environment now supports **competitive MARL** with opposing reward functions:
+### Supported RL Algorithms
 
-**Agent (Pursuer) Rewards:**
-- **+0.1 per step** when target is in focus area
-- **+10 bonus** for keeping target in focus for 5 consecutive seconds
-- **-2 penalty** if target escapes when near completion (≥80% progress)
-- **-distance penalty** when target is outside focus
+| Algorithm | Type | Action Space | Best For |
+|-----------|------|--------------|----------|
+| **PPO** | Policy Gradient (On-Policy) | Continuous | General purpose, stable training |
+| **SAC** | Actor-Critic (Off-Policy) | Continuous | Sample efficient, good exploration |
+| **TD3** | Actor-Critic (Off-Policy) | Continuous | Robust, reduced overestimation |
+| **DQN** | Value-Based (Off-Policy) | Discrete | Discrete action spaces |
 
-**Target (Evader) Rewards:**
-- **-0.1 per step** when caught in focus area
-- **-10 penalty** if agent completes 5 seconds of tracking
-- **+2 reward** for successful escape when near agent's completion
-- **+distance reward** when outside focus area
+## 🚀 Quick Start
 
-This creates a **zero-sum competitive game** where:
-- Agent learns to maintain focus and track aggressively
-- Target learns to evade and break tracking locks
-- Both can be trained with RL (currently target uses rule-based evasion)
-
-### The Core Concept: 3D Error Vector Nullification
-
-Inspired by fighter jet dogfight HUDs, this project implements a **purely egocentric (first-person) control environment** where:
-
-- **🎯 The Agent (You)**: Always at the center of your universe, represented by a fixed **green crosshair**
-- **🔴 The Targets (Enemies)**: Color-coded targets executing evasive maneuvers in 3D space
-- **📐 The 3D Error Vector (Mission)**: The cyan arrow from your crosshair to the target - **nullify in ALL three dimensions**
-- **⚡ The Control Challenge**: Generate 3D acceleration commands (steering + thrust) to drive the 3D error vector to zero
-- **🎚️ Depth Perception**: Target size scales with depth - larger means closer, smaller means farther away
-
-This is **not** a realistic 3D flight simulator. Instead, we deliberately abstract away complex graphics and visual detection to focus on the **pure 3D control problem**: Given a simplified "radar" view with depth cues, can different control strategies effectively minimize 3D tracking error while managing range?
-
-### The Egocentric Framework
-
-The simulation operates from a purely first-person perspective:
-
-1. **Agent's Viewpoint**: You are always at the center. The world rotates around you.
-2. **Error Vector**: The line from your center (green crosshair) to the target (red circle) represents the error that must be nullified
-3. **Control Loop**: As the target moves, the error vector changes → Controller computes acceleration → Agent moves to reduce error → Repeat
-
-### Research Question
-
-**How do different control paradigms (classical PID, state estimation with Kalman filtering, and end-to-end Deep RL) compare when solving this error vector nullification problem using only vision-based, egocentric observations?**
-
-### Key Features
-
-- **Dogfight HUD-Style Environment**: Radar rings, crosshair, error vector visualization, status indicators
-- **Pure Egocentric Control**: Agent always centered, learns to nullify error vectors
-- **Three Control Approaches**:
-  1. **PID Controller**: Classical feedback control with OpenCV visual detection
-  2. **Kalman Filter + PID**: State estimation for smooth, robust tracking
-  3. **SAC Deep RL**: End-to-end learning directly from pixels (64×64 stacked frames)
-- **Comprehensive Evaluation**: Error magnitude, tracking success rate, statistical comparison
-- **Publication-Ready**: Automated figure generation and LaTeX tables
-
-## 🏗️ Project Structure
-
-```
-PIDRL/
-├── environments/           # Custom Gymnasium environment
-│   ├── pursuit_evasion_env.py
-│   └── __init__.py
-├── controllers/            # Classical controllers
-│   ├── pid_controller.py
-│   ├── kalman_filter.py
-│   ├── kalman_pid_controller.py
-│   └── __init__.py
-├── agents/                 # Deep RL agents
-│   ├── networks.py
-│   └── __init__.py
-├── utils/                  # Utilities
-│   ├── visual_detection.py
-│   ├── visualization.py
-│   └── __init__.py
-├── experiments/            # Training and evaluation scripts
-│   ├── train_sac.py
-│   ├── evaluate.py
-│   └── compare_methods.py
-├── configs/                # Configuration files
-│   └── config.yaml
-├── demo.py                 # Interactive demo
-├── test_environment.py     # Quick test script
-└── requirements.txt        # Dependencies
-```
-
-## 🎯 Visual Guide: Understanding the HUD
-
-When you run the demo, you'll see a **dogfight-inspired HUD** with these elements:
-
-### HUD Elements
-
-| Element | Color | Description |
-|---------|-------|-------------|
-| **Green Crosshair** | 🟢 Green | Your agent - always at the center. This is your fixed reference point. |
-| **Red Circle** | 🔴 Red | The target executing evasive maneuvers (Brownian motion) |
-| **Cyan Arrow** | 🔵 Cyan | **THE ERROR VECTOR** - Points from you (center) to target. Your goal is to nullify this! |
-| **Radar Rings** | ⚪ Gray | Range indicators (33%, 66%, 100% of view radius) |
-| **Light Green Line** | 🟢 Green | Your velocity vector (where you're moving) |
-| **Light Red Line** | 🔴 Red | Target's velocity vector (where it's moving) |
-
-### HUD Information Display
-
-**Top-Left:**
-- `ERROR: X.XX` - **Error magnitude** (distance to target) - Lower is better!
-- `[LOCKED]` or `[TRACKING]` - Status indicator (LOCKED when error < threshold)
-
-**Top-Right:**
-- `STEP: X/500` - Current timestep in episode
-
-**Bottom-Left:**
-- `AGENT VEL: X.XX` - Your current speed
-- `TARGET VEL: X.XX` - Target's current speed
-
-**Bottom-Right:**
-- `Goal: Nullify Error Vector` - Reminder of your objective
-
-**Center (when tracking):**
-- `XXX°` - Angle to target in degrees
-
-### What You're Watching
-
-When you run `python demo.py pid`:
-
-1. **Green crosshair** stays at center (that's you, the agent)
-2. **Red target** moves around executing random evasive maneuvers
-3. **Cyan error vector** points from center to target
-4. **Controller tries to "follow" the vector** by applying accelerations
-5. **Goal**: Make the cyan arrow as short as possible (ideally zero)
-
-The **error vector is the key concept**: Unlike traditional tracking where you move toward the target, here your perspective is egocentric - the target appears to move relative to you, and you must apply forces to keep it centered in your crosshair.
-
-## 🚀 Installation
-
-### Prerequisites
-
-- Python 3.8+
-- CUDA (optional, for GPU acceleration)
-
-### Install Dependencies
+### Installation
 
 ```bash
-# Clone the repository
+# Clone repository
 cd PIDRL
-
-# Create virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 ```
 
-### Verify Installation
+### 1. Test Random Actions (Baseline)
 
 ```bash
-python test_environment.py
+# See the 3D HUD with random agent
+python demo_3d.py --scenario 1 --random --n-episodes 3
 ```
 
-## 🎮 Quick Start
+### 2. Train Your First Agent (Scenario 1)
 
-### 🚀 NEW: Integrated Multi-Agent System
+**On Kaggle (GPU, No Rendering):**
+```bash
+# Upload to Kaggle and run:
+python training/train_rl.py --algo ppo --scenario 1 --timesteps 500000
 
-**The Complete System: Geographic Coordinates + Egocentric HUD Perspectives!**
+# Or use SAC for better exploration:
+python training/train_rl.py --algo sac --scenario 1 --timesteps 500000
+```
+
+**On Local Machine:**
+```bash
+python training/train_rl.py --algo ppo --scenario 1 --timesteps 500000 \
+                            --save-dir models --tensorboard-log logs
+```
+
+Monitor training:
+```bash
+tensorboard --logdir logs
+```
+
+### 3. Test Trained Model (Local with Rendering)
 
 ```bash
-# Full integrated demo: Global map + Individual HUDs for each agent
-python demo_integrated.py                    # 4 agents, 2 teams
-python demo_integrated.py --agents 6         # 6 agents
-python demo_integrated.py --teams 3          # 3 teams
+# Test PPO model
+python testing/test_rl.py --scenario 1 --algo ppo \
+                          --model models/ppo_pursuer_final.zip \
+                          --episodes 10 --stats
+
+# Test SAC model
+python testing/test_rl.py --scenario 1 --algo sac \
+                          --model models/sac_pursuer_final.zip \
+                          --episodes 10 --stats
 ```
 
-**What you see:**
-- **LEFT PANEL**: Global geographic map
-  - All agents moving in 3D arena (top-down view)
-  - Colored trajectory trails for each agent
-  - Real-time maneuvering in geographic coordinates
-
-- **RIGHT PANELS**: Egocentric HUDs (2x2 grid)
-  - Each agent has own pursuit-evasion view
-  - Agent always at center of own HUD
-  - Enemies shown relative to agent's perspective
-  - Phase 1 style dogfight HUD for each agent
-
-**This integrates everything:**
-- ✅ Global 3D arena with geographic coordinates (Phase 3-5)
-- ✅ Individual egocentric perspectives (Phase 1-2)
-- ✅ Multi-agent coordination (Phase 4)
-- ✅ Real-time trajectory visualization
-- ✅ Simultaneous multi-view rendering
-
-### 1. Demo Visualization
-
-**🆕 NEW: 2.5D Demo with 3D Controllers and Depth Perception**
+### 4. Train Competitive MARL (Scenario 2)
 
 ```bash
-# 3D PID Controller (recommended first try)
-python demo_3d.py pid --n-episodes 3
-
-# 3D Kalman-PID Controller (more robust)
-python demo_3d.py kalman-pid --n-episodes 3
-
-# Multi-target with 3D PID (3 targets)
-python demo_3d.py pid --num-targets 3 --n-episodes 2
-
-# Challenge mode: 5 targets with Kalman-PID
-python demo_3d.py kalman-pid --num-targets 5 --n-episodes 2
-
-# Random actions baseline (for comparison)
-python demo_3d.py random --num-targets 1 --n-episodes 2
+# Alternating training: Pursuer → Evader → Pursuer → ...
+python training/train_rl.py --algo sac --scenario 2 --timesteps 500000 \
+                            --competitive --alternating-rounds 10
 ```
 
-**What you'll see:**
-- ✅ **Agent velocity vector** (green line) showing motion generated by PID/Kalman-PID
-- ✅ **3D error vector** (cyan arrow) being actively nullified
-- ✅ **Depth management** via thrust control (az acceleration)
-- ✅ **Real-time tracking** with XY and Z error breakdown
+This creates:
+- `models/sac_pursuer_latest.zip`
+- `models/sac_evader_latest.zip`
 
-**Classic 2D Demo (original version)**
-
-Test each controller interactively:
+### 5. Demo Competitive MARL
 
 ```bash
-# PID Controller (2D)
-python demo.py pid --n-episodes 3
-
-# Kalman Filter + PID (2D)
-python demo.py kalman-pid --n-episodes 3
-
-# SAC Agent (requires trained model - 2D)
-python demo.py sac --sac-model models/sac/final_model --n-episodes 3
+python demo_3d.py --scenario 2 \
+                  --pursuer-algo sac --pursuer-model models/sac_pursuer_latest.zip \
+                  --evader-algo sac --evader-model models/sac_evader_latest.zip \
+                  --n-episodes 5
 ```
 
-### 2. Train SAC Agent
+## 📁 Project Structure
 
-**🚀 NEW: One-Click Training**
-
-We now have focus-based rewards for better learning:
-- ✅ **+0.1 reward/step** when target is in focus area
-- ✅ **+10 bonus** for keeping target in focus for 5 seconds
-- ✅ **-2 penalty** if escaping near completion
-- ✅ **Negative reward** when target is outside focus
-
-```bash
-# 🚀 QUICK TRAIN (50k steps, ~10 minutes) - RECOMMENDED FOR TESTING
-python quick_train.py
-
-# 🏋️  FULL TRAIN (500k steps, ~2 hours) - FOR BEST RESULTS
-python quick_train.py --full
-
-# 🧪 TEST RUN (5k steps, ~1 minute) - SANITY CHECK
-python quick_train.py --test
+```
+PIDRL/
+├── configs/
+│   └── config.yaml              # Configuration for all algorithms
+├── environments/
+│   ├── pursuit_evasion_env_3d.py  # 3D HUD environment
+│   └── __init__.py
+├── agents/
+│   ├── networks.py              # CNN architectures
+│   └── __init__.py
+├── training/
+│   └── train_rl.py              # Training script (Kaggle optimized, no render)
+├── testing/
+│   └── test_rl.py               # Testing script (local, with render)
+├── models/                      # Saved models
+├── logs/                        # TensorBoard logs
+├── demo_3d.py                   # Interactive demo
+├── competitive_marl/            # Competitive MARL system
+│   ├── config.py
+│   ├── environment/
+│   ├── agents/
+│   ├── training/
+│   └── testing/
+└── README.md
 ```
 
-**Advanced training (manual control):**
-
-```bash
-python experiments/train_sac.py \
-    --config configs/config.yaml \
-    --save-dir models/sac \
-    --tensorboard-log logs/sac
-```
-
-**Monitor training with TensorBoard:**
-
-```bash
-# For quick_train.py outputs
-tensorboard --logdir logs/sac_quick  # or logs/sac_full
-
-# For manual training
-tensorboard --logdir logs/sac
-```
-
-**Test trained model:**
-
-```bash
-# Test best model from quick training
-python test_trained_model.py --model models/sac_quick/best_model/best_model.zip --episodes 5
-
-# Test full training
-python test_trained_model.py --model models/sac_full/best_model/best_model.zip --episodes 10
-```
-
-## 🎮 Training on Kaggle with GPU
-
-**🚀 NEW: One-Click Kaggle Setup for Fast GPU Training**
-
-Train your agent on Kaggle's free GPU (Tesla T4 x2) in just a few steps! Full training (500k steps) takes ~2 hours instead of 10+ hours on CPU.
-
-### Quick Start on Kaggle
-
-1. **Upload the Kaggle Notebook** ([`kaggle_train.ipynb`](kaggle_train.ipynb))
-   - Go to [Kaggle Notebooks](https://www.kaggle.com/code)
-   - Click "New Notebook" → "Import Notebook" → Upload `kaggle_train.ipynb`
-
-2. **Enable GPU Acceleration**
-   - Settings → Accelerator → **GPU T4 x2**
-   - ⚠️ **CRITICAL**: Without GPU, training will be 5-10x slower!
-
-3. **Run All Cells**
-   - The notebook handles everything automatically:
-     - ✅ Clones repository
-     - ✅ Installs dependencies
-     - ✅ Checks GPU availability
-     - ✅ Tests environment
-     - ✅ Runs full training (500k steps)
-     - ✅ Evaluates and analyzes results
-
-4. **Download Trained Model**
-   - After training completes, download `trained_model.zip` from Output section
-   - Extract and use locally: `python test_trained_model.py --model path/to/best_model.zip`
-
-### Manual Kaggle Setup
-
-If you prefer to clone and run manually:
-
-```bash
-# In Kaggle notebook cell:
-!git clone https://github.com/nurullahayv/PIDRL.git
-%cd PIDRL
-
-# Run automated setup
-!python setup_kaggle.py
-
-# Quick test (1 minute)
-!python quick_train.py --test
-
-# Full training (2 hours with GPU)
-!python quick_train.py --full
-
-# Monitor in another cell
-%load_ext tensorboard
-%tensorboard --logdir logs/sac_full
-
-# Test trained model (no rendering in Kaggle)
-!python test_trained_model.py --model models/sac_full/best_model/best_model.zip --episodes 10 --no-render
-```
-
-### What Gets Trained?
-
-The agent learns:
-- ✅ **3D pursuit-evasion** with depth perception
-- ✅ **Focus-based tracking** with milestone rewards
-- ✅ **Competitive behavior** against evasive targets
-- ✅ **Flight dynamics** with turning rate constraints
-
-### Expected Performance
-
-After full training (500k steps):
-- Average reward: **~150-200** (focus-based rewards)
-- Focus time: **~70-80%** (target in focus area)
-- Tracking success rate: **~85-90%**
-
-Training curves will show in TensorBoard:
-- Reward progression
-- Policy loss
-- Value function estimates
-- Episode lengths
-
-### 3. Evaluate All Methods
-
-```bash
-python experiments/evaluate.py \
-    --config configs/config.yaml \
-    --sac-model models/sac/final_model \
-    --n-episodes 100 \
-    --output-dir results
-```
-
-### 4. Generate Comparison Plots
-
-```bash
-python experiments/compare_methods.py \
-    --config configs/config.yaml \
-    --sac-model models/sac/final_model \
-    --n-episodes 100 \
-    --output-dir results
-```
-
-This will generate:
-- Performance comparison plots
-- Statistical analysis
-- LaTeX tables for the paper
-- CSV files with detailed results
-
-## 📊 Evaluation Metrics
-
-The framework computes the following metrics:
-
-1. **Mean Episode Reward**: Cumulative reward per episode
-2. **Tracking Error**: Mean squared distance to target
-3. **Success Rate**: Percentage of time target is within threshold
-4. **Episode Length**: Steps per episode
-5. **Detection Rate**: Vision system reliability (PID/Kalman-PID only)
-
-## 🔧 Configuration
+## ⚙️ Configuration
 
 Edit `configs/config.yaml` to customize:
 
-- Environment parameters (physics, observation space)
-- PID gains (Kp, Ki, Kd)
-- Kalman Filter noise parameters
-- SAC hyperparameters (learning rate, network architecture)
-- Evaluation settings
-
-## 📈 Experimental Workflow
-
-### Full Research Pipeline
-
-```bash
-# 1. Train SAC agent
-python experiments/train_sac.py --config configs/config.yaml
-
-# 2. Evaluate all methods and generate plots
-python experiments/compare_methods.py \
-    --config configs/config.yaml \
-    --sac-model models/sac/final_model \
-    --n-episodes 100
-
-# 3. Results are saved to results/
-#    - results/evaluation_summary.csv
-#    - results/figures/*.png
-#    - results/performance_table.tex
-```
-
-## 🧪 Testing
-
-Run quick tests to verify components:
-
-```bash
-# Test environment
-python test_environment.py
-
-# Test PID controller
-python -c "from controllers import PIDAgent; print('PID OK')"
-
-# Test Kalman Filter
-python -c "from controllers import KalmanFilter; print('Kalman OK')"
-
-# Test SAC networks
-python -c "from agents.networks import CustomCNN; print('Networks OK')"
-```
-
-## 📝 Research Paper Integration
-
-### Generated Assets
-
-After running experiments, you'll have:
-
-1. **Figures** (`results/figures/`):
-   - `reward_comparison.png`
-   - `tracking_error_comparison.png`
-   - `success_rate_comparison.png`
-   - `distance_over_time_ep*.png`
-
-2. **LaTeX Table** (`results/performance_table.tex`):
-   - Ready-to-include performance comparison table
-
-3. **Data** (`results/*/`):
-   - NumPy arrays for custom analysis
-   - CSV files for spreadsheet analysis
-
-### Citing
-
-If you use this code in your research, please cite:
-
-```bibtex
-@article{yourname2024pidrl,
-  title={Vision-Based Pursuit-Evasion Control: Comparing Classical and Deep Reinforcement Learning Approaches},
-  author={Your Name},
-  journal={Your Journal/Conference},
-  year={2024}
-}
-```
-
-## 🛠️ Customization
-
-### Adding New Controllers
-
-1. Implement controller in `controllers/`
-2. Add agent wrapper with `predict()` method
-3. Update `experiments/evaluate.py` to include new method
-
-### Modifying Environment
-
-Edit `environments/pursuit_evasion_env.py`:
-- Change observation space
-- Adjust physics parameters
-- Modify reward function
-- Add new features
-
-### Tuning Hyperparameters
-
-Use `configs/config.yaml`:
+### Environment Parameters
 ```yaml
-pid:
-  kp: 0.5    # Proportional gain
-  ki: 0.01   # Integral gain
-  kd: 0.2    # Derivative gain
-
-sac:
-  learning_rate: 3.0e-4
-  buffer_size: 100000
-  batch_size: 256
+environment:
+  max_velocity: 25.0        # Agent max speed (INCREASED)
+  max_acceleration: 3.0     # Agent acceleration (INCREASED)
+  target_size: 7.0          # Target size (LARGER for easier lock-on)
+  target_max_speed_ratio: 1.0  # Target speed = agent speed
+  success_threshold: 9.0    # Focus area (30% of FOV)
 ```
+
+### Algorithm-Specific Configs
+
+Each algorithm (DQN, PPO, SAC, TD3) has its own section in `config.yaml`:
+- Network architecture (CNN layers, MLP units)
+- Hyperparameters (learning rate, batch size, etc.)
+- Training settings (buffer size, exploration params, etc.)
+
+## 🎓 Training Recommendations
+
+### Algorithm Selection
+
+| Scenario | Recommended | Why |
+|----------|-------------|-----|
+| Scenario 1 (RL vs Random) | **PPO** or **SAC** | PPO: stable, SAC: sample efficient |
+| Scenario 2 (RL vs RL) | **SAC** or **TD3** | Better for competitive settings |
+| Quick Testing | **PPO** | Faster convergence |
+| Research | **SAC** | Best overall performance |
+
+### Training Times (Kaggle GPU)
+
+| Algorithm | Steps | Expected Time | Recommended |
+|-----------|-------|---------------|-------------|
+| PPO | 500K | ~1.5 hours | ✅ Good balance |
+| SAC | 500K | ~2 hours | ✅ Best performance |
+| TD3 | 500K | ~2 hours | ✅ Robust alternative |
+| DQN | 500K | ~1.5 hours | ⚠️ Discrete actions only |
+
+### Hyperparameter Tuning Tips
+
+**Too slow convergence?**
+- Increase `learning_rate` (e.g., 3e-4 → 5e-4)
+- Decrease `batch_size` for faster updates
+
+**Unstable training?**
+- Decrease `learning_rate`
+- Increase `batch_size`
+- For PPO: reduce `clip_range`
+- For SAC/TD3: increase `tau` (slower target updates)
+
+**Poor exploration?**
+- For SAC: set `ent_coef: "auto"`
+- For PPO: increase `ent_coef`
+- For DQN: increase `exploration_initial_eps`
+
+## 📊 Evaluation Metrics
+
+The testing script computes:
+- **Episode Reward**: Cumulative reward per episode
+- **Focus Time**: Percentage of time target is in focus area (<9.0 units)
+- **Final Distance**: Distance to target at episode end
+- **Episode Length**: Steps to completion
+
+Example output:
+```
+OVERALL STATISTICS
+Episodes: 10
+
+Rewards:
+  Mean: 125.30 ± 15.20
+  Min/Max: 95.30 / 145.70
+
+Focus Time (%):
+  Mean: 68.3% ± 8.5%
+  Min/Max: 55.2% / 78.9%
+```
+
+## 🧪 Kaggle GPU Training
+
+### Setup
+
+1. **Upload `PIDRL/` to Kaggle**
+2. **Enable GPU** (Settings → Accelerator → GPU T4 x2)
+3. **Run training:**
+
+```python
+# In Kaggle notebook:
+!cd PIDRL && python training/train_rl.py --algo sac --scenario 1 --timesteps 500000
+
+# Monitor with TensorBoard:
+%load_ext tensorboard
+%tensorboard --logdir logs
+```
+
+4. **Download models** from Output panel
+
+### Kaggle Best Practices
+
+✅ **Always use GPU** (5-10x faster than CPU)
+✅ **No rendering** during training (automatic in `train_rl.py`)
+✅ **Save checkpoints** every 10K steps
+✅ **Monitor TensorBoard** for training curves
+✅ **Download models** before session ends
+
+## 🔬 Research Use Cases
+
+### 1. Algorithm Comparison
+Train all algorithms on Scenario 1 and compare:
+```bash
+for algo in ppo sac td3; do
+    python training/train_rl.py --algo $algo --scenario 1 --timesteps 500000
+done
+```
+
+### 2. Competitive MARL Research
+Study co-evolution of pursuer and evader strategies:
+```bash
+python training/train_rl.py --algo sac --scenario 2 --competitive \
+                            --alternating-rounds 50 --timesteps 1000000
+```
+
+### 3. Transfer Learning
+Train on Scenario 1, fine-tune on Scenario 2:
+```bash
+# Step 1: Train on random target
+python training/train_rl.py --algo sac --scenario 1 --timesteps 500000
+
+# Step 2: Fine-tune on competitive
+python training/train_rl.py --algo sac --scenario 2 --competitive \
+                            --resume models/sac_pursuer_final.zip \
+                            --timesteps 500000
+```
+
+## 🎮 3D HUD Controls
+
+During demo/testing:
+- **Observe**: Green crosshair (you) at center
+- **Track**: Red/colored targets moving in 3D
+- **Goal**: Keep target in focus area (inner circle, <9.0 units)
+- **Depth**: Target size indicates distance (large = close, small = far)
+
+HUD Elements:
+- **Green crosshair**: Agent (always centered)
+- **Colored circles**: Targets with depth-based sizing
+- **Green arrow**: Agent velocity vector
+- **Red arrow**: Target velocity vector
+- **Cyan arrow**: Error vector (agent → target)
+- **White circle**: Focus area boundary
 
 ## 🐛 Troubleshooting
 
-### Common Issues
+**Training too slow?**
+- Use Kaggle GPU (not CPU)
+- Reduce `batch_size` or `buffer_size`
 
-**Issue**: `pygame.error: No available video device`
-- **Solution**: Set `render_mode=None` or use virtual display
+**Agent not learning?**
+- Check TensorBoard for reward curves
+- Increase `total_timesteps` (try 1M)
+- Tune `learning_rate`
 
-**Issue**: CUDA out of memory
-- **Solution**: Reduce `batch_size` in SAC config
+**"No module" errors?**
+```bash
+pip install gymnasium stable-baselines3[extra] torch numpy pygame pyyaml
+```
 
-**Issue**: Slow training
-- **Solution**: Reduce `frame_size` or `buffer_size`
+**Rendering errors (Kaggle)?**
+- Normal! Training uses `render_mode=None`
+- Only test locally with rendering
 
-## 📚 Dependencies
+## 📄 Citation
 
-Key libraries:
-- **Gymnasium**: Environment API
-- **Stable-Baselines3**: SAC implementation
-- **PyTorch**: Deep learning
-- **OpenCV**: Computer vision
-- **Pygame**: Rendering
-- **Matplotlib/Seaborn**: Visualization
-
-See `requirements.txt` for complete list.
-
-## 🎯 Research Questions
-
-This project helps answer:
-
-1. How does end-to-end RL compare to classical control?
-2. Does Kalman filtering improve PID performance?
-3. What is the sample efficiency trade-off?
-4. How do methods generalize to different motion patterns?
-
-## 🤝 Contributing
-
-Contributions are welcome! Areas for improvement:
-
-- Additional controllers (MPC, LQR)
-- More RL algorithms (PPO, TD3, DQN)
-- 3D environments
-- Multi-agent scenarios
-- Real-world deployment
-
-## 📄 License
-
-This project is licensed under the MIT License. See `LICENSE` for details.
-
-## 🙏 Acknowledgments
-
-- OpenAI Gym/Gymnasium for the RL framework
-- Stable-Baselines3 for SAC implementation
-- OpenCV community for computer vision tools
+```bibtex
+@software{pidrl_3d_hud,
+  title={3D HUD Pursuit-Evasion: Modern Deep RL},
+  author={Your Name},
+  year={2025},
+  url={https://github.com/yourusername/PIDRL}
+}
+```
 
 ## 📧 Contact
 
 For questions or collaboration:
 - Open an issue on GitHub
-- Email: [your-email@example.com]
+- Email: your-email@example.com
 
 ---
 
-**Happy Researching! 🚀**
+**Good Luck Training! 🚀**
+
+_Note: This project focuses on 3D HUD pursuit-evasion with modern deep RL. Previous 2D and classical control methods have been removed to streamline the codebase._

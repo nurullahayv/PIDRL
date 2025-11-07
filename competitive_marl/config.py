@@ -13,13 +13,13 @@ ENV_CONFIG = {
 
     # Success Criteria (30% focus area)
     "success_threshold": 9.0,    # 30% of view_size
-    "target_size": 4.0,          # Target size in world units
+    "target_size": 7.0,          # Target size in world units (INCREASED for easier lock-on)
     "agent_size": 1.5,
 
     # Physics
-    "max_velocity": 50.0,        # Max velocity (units/s)
-    "max_acceleration": 5.0,     # Max acceleration (units/s²)
-    "max_angular_velocity": 2.0, # Max turning rate (rad/s)
+    "max_velocity": 60.0,        # Max velocity (units/s) - INCREASED for faster action
+    "max_acceleration": 6.0,     # Max acceleration (units/s²) - INCREASED
+    "max_angular_velocity": 3.5, # Max turning rate (rad/s) - INCREASED
     "dt": 0.1,                   # Time step
 
     # Episode
