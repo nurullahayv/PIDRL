@@ -568,7 +568,7 @@ Contributions are welcome! Areas for improvement:
 
 This project is licensed under the MIT License. See `LICENSE` for details.
 
-## 🙏 Acknowledgments
+##  Acknowledgments
 
 - OpenAI Gym/Gymnasium for the RL framework
 - Stable-Baselines3 for SAC implementation
